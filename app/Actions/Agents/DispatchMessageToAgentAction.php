@@ -3,6 +3,7 @@
 namespace App\Actions\Agents;
 
 use App\Actions\Messages\ProcessOutboundMessageAction;
+use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\DTO\Agents\AgentRequestData;
 use App\DTO\Messages\OutboundMessageData;
 use App\Enums\AgentRunStatus;
@@ -12,6 +13,7 @@ use App\Models\CommunicationAgentRun;
 use App\Models\CommunicationMessage;
 use App\Services\Agents\N8nAgentClient;
 use App\Support\Security\AgentPromptGuard;
+use App\Support\Tenancy\CurrentTenantConnection;
 use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\Log;
 
@@ -22,24 +24,29 @@ class DispatchMessageToAgentAction
         private readonly ProcessOutboundMessageAction $processOutboundMessage,
         private readonly AgentPromptGuard $agentPromptGuard,
         private readonly TenantResolver $tenantResolver,
+        private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly CurrentTenantConnection $currentTenantConnection,
     ) {}
 
     public function handle(CommunicationMessage $message): CommunicationAgentRun
     {
         $this->tenantResolver->enforceIfEnabled($message->tenant_id);
+        $hadTenantContext = $this->currentTenantConnection->connectionName() !== null;
+        $this->resolveTenantRuntimeConnection->handle($message->tenant_id);
 
-        $message->loadMissing(['contact', 'conversation', 'channel']);
-        $requestData = $this->requestData($message);
+        try {
+            $message->loadMissing(['contact', 'conversation', 'channel']);
+            $requestData = $this->requestData($message);
 
-        $agentRun = CommunicationAgentRun::create([
-            'tenant_id' => $message->tenant_id,
-            'conversation_id' => $message->conversation_id,
-            'message_id' => $message->id,
-            'provider' => $message->provider,
-            'agent' => config('communication.agent.provider', 'n8n'),
-            'status' => AgentRunStatus::Pending->value,
-            'request_payload' => $requestData->toArray(),
-        ]);
+            $agentRun = CommunicationAgentRun::create([
+                'tenant_id' => $message->tenant_id,
+                'conversation_id' => $message->conversation_id,
+                'message_id' => $message->id,
+                'provider' => $message->provider,
+                'agent' => config('communication.agent.provider', 'n8n'),
+                'status' => AgentRunStatus::Pending->value,
+                'request_payload' => $requestData->toArray(),
+            ]);
 
         if (! (bool) config('communication.agent.enabled', false)) {
             $agentRun->forceFill([
@@ -60,8 +67,8 @@ class DispatchMessageToAgentAction
                 'status' => AgentRunStatus::Skipped->value,
             ]);
 
-            return $agentRun->refresh();
-        }
+                return $agentRun->refresh();
+            }
 
         $agentRun->forceFill([
             'status' => AgentRunStatus::Running->value,
@@ -106,7 +113,12 @@ class DispatchMessageToAgentAction
             ));
         }
 
-        return $agentRun->refresh();
+            return $agentRun->refresh();
+        } finally {
+            if (! $hadTenantContext) {
+                $this->currentTenantConnection->clear();
+            }
+        }
     }
 
     private function requestData(CommunicationMessage $message): AgentRequestData

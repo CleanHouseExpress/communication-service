@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Tenancy\UsesCurrentTenantConnection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class CommunicationContact extends Model
 {
     use HasUuids;
+    use UsesCurrentTenantConnection;
 
     protected $fillable = [
         'tenant_id',

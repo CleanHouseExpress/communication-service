@@ -12,6 +12,8 @@ use App\Models\CommunicationChannel;
 use App\Models\CommunicationContact;
 use App\Models\CommunicationConversation;
 use App\Models\CommunicationMessage;
+use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
+use App\Support\Tenancy\CurrentTenantConnection;
 use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,77 +24,96 @@ class ProcessInboundMessageAction
     public function __construct(
         private readonly DispatchMessageToAgentAction $dispatchMessageToAgent,
         private readonly TenantResolver $tenantResolver,
+        private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly CurrentTenantConnection $currentTenantConnection,
     ) {}
 
     public function handle(InboundMessageData $messageData): array
     {
         $this->tenantResolver->enforceIfEnabled($messageData->tenantId);
+        $hadTenantContext = $this->currentTenantConnection->connectionName() !== null;
+        $this->resolveTenantRuntimeConnection->handle($messageData->tenantId);
 
-        $result = DB::transaction(function () use ($messageData): array {
-            $channel = $this->resolveChannel($messageData);
-            $contact = $this->resolveContact($messageData);
-            $conversation = $this->resolveConversation($messageData, $channel, $contact);
+        try {
+            $result = $this->transaction(function () use ($messageData): array {
+                $channel = $this->resolveChannel($messageData);
+                $contact = $this->resolveContact($messageData);
+                $conversation = $this->resolveConversation($messageData, $channel, $contact);
 
-            $message = $this->findExistingMessage($messageData);
-            $created = false;
+                $message = $this->findExistingMessage($messageData);
+                $created = false;
 
-            if ($message === null) {
-                $message = CommunicationMessage::create([
-                    'tenant_id' => $messageData->tenantId,
-                    'conversation_id' => $conversation->id,
-                    'contact_id' => $contact->id,
-                    'channel_id' => $channel->id,
-                    'provider' => $messageData->provider->value,
-                    'external_message_id' => $messageData->externalMessageId,
-                    'direction' => MessageDirection::Inbound->value,
-                    'message_type' => $messageData->messageType->value,
-                    'text' => $messageData->text,
-                    'payload' => $messageData->rawPayload,
-                    'status' => MessageStatus::Received->value,
-                    'occurred_at' => $messageData->occurredAt,
-                ]);
-                $created = true;
+                if ($message === null) {
+                    $message = CommunicationMessage::create([
+                        'tenant_id' => $messageData->tenantId,
+                        'conversation_id' => $conversation->id,
+                        'contact_id' => $contact->id,
+                        'channel_id' => $channel->id,
+                        'provider' => $messageData->provider->value,
+                        'external_message_id' => $messageData->externalMessageId,
+                        'direction' => MessageDirection::Inbound->value,
+                        'message_type' => $messageData->messageType->value,
+                        'text' => $messageData->text,
+                        'payload' => $messageData->rawPayload,
+                        'status' => MessageStatus::Received->value,
+                        'occurred_at' => $messageData->occurredAt,
+                    ]);
+                    $created = true;
+                }
+
+                $conversation->forceFill([
+                    'last_message_at' => $messageData->occurredAt ?? now(),
+                ])->save();
+
+                return [
+                    'channel' => $channel,
+                    'contact' => $contact,
+                    'conversation' => $conversation->refresh(),
+                    'message' => $message,
+                    'message_created' => $created,
+                ];
+            });
+
+            if ($this->shouldDispatchToAgent($result)) {
+                try {
+                    $result['agent_run'] = $this->dispatchMessageToAgent->handle($result['message']);
+                } catch (Throwable $exception) {
+                    Log::warning('Inbound agent dispatch failed without interrupting message processing.', [
+                        'tenant_id' => $result['message']->tenant_id ?? null,
+                        'provider' => $result['message']->provider ?? null,
+                        'message_id' => $result['message']->id ?? null,
+                        'conversation_id' => $result['message']->conversation_id ?? null,
+                        'status' => 'agent_dispatch_failed',
+                        'error' => $exception->getMessage(),
+                    ]);
+
+                    report($exception);
+                }
             }
 
-            $conversation->forceFill([
-                'last_message_at' => $messageData->occurredAt ?? now(),
-            ])->save();
+            Log::info('Inbound message processed.', [
+                'tenant_id' => $result['message']->tenant_id ?? null,
+                'provider' => $result['message']->provider ?? null,
+                'message_id' => $result['message']->id ?? null,
+                'conversation_id' => $result['conversation']->id ?? null,
+                'status' => $result['message_created'] ? 'created' : 'duplicate',
+            ]);
 
-            return [
-                'channel' => $channel,
-                'contact' => $contact,
-                'conversation' => $conversation->refresh(),
-                'message' => $message,
-                'message_created' => $created,
-            ];
-        });
-
-        if ($this->shouldDispatchToAgent($result)) {
-            try {
-                $result['agent_run'] = $this->dispatchMessageToAgent->handle($result['message']);
-            } catch (Throwable $exception) {
-                Log::warning('Inbound agent dispatch failed without interrupting message processing.', [
-                    'tenant_id' => $result['message']->tenant_id ?? null,
-                    'provider' => $result['message']->provider ?? null,
-                    'message_id' => $result['message']->id ?? null,
-                    'conversation_id' => $result['message']->conversation_id ?? null,
-                    'status' => 'agent_dispatch_failed',
-                    'error' => $exception->getMessage(),
-                ]);
-
-                report($exception);
+            return $result;
+        } finally {
+            if (! $hadTenantContext) {
+                $this->currentTenantConnection->clear();
             }
         }
+    }
 
-        Log::info('Inbound message processed.', [
-            'tenant_id' => $result['message']->tenant_id ?? null,
-            'provider' => $result['message']->provider ?? null,
-            'message_id' => $result['message']->id ?? null,
-            'conversation_id' => $result['conversation']->id ?? null,
-            'status' => $result['message_created'] ? 'created' : 'duplicate',
-        ]);
+    private function transaction(callable $callback): mixed
+    {
+        $connectionName = $this->currentTenantConnection->connectionName();
 
-        return $result;
+        return $connectionName !== null
+            ? DB::connection($connectionName)->transaction($callback)
+            : DB::transaction($callback);
     }
 
     private function shouldDispatchToAgent(array $result): bool

@@ -24,7 +24,7 @@ class TenantConnectionConfigurator
 
     private function connectionName(CommunicationTenantConnection $connection): string
     {
-        return 'tenant_'.$connection->id;
+        return (string) config('communication.tenancy.runtime.connection_name', 'communication_tenant');
     }
 
     private function baseConfig(string $driver, CommunicationTenantConnection $connection): array

@@ -9,6 +9,8 @@ use App\Enums\ProviderType;
 use App\Models\CommunicationMessage;
 use App\Models\CommunicationOutboundMessage;
 use App\Services\Providers\ZapiClient;
+use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
+use App\Support\Tenancy\CurrentTenantConnection;
 use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,13 +21,18 @@ class ProcessOutboundMessageAction
     public function __construct(
         private readonly ZapiClient $zapiClient,
         private readonly TenantResolver $tenantResolver,
+        private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly CurrentTenantConnection $currentTenantConnection,
     ) {}
 
     public function handle(OutboundMessageData $messageData): array
     {
         $this->tenantResolver->enforceIfEnabled($messageData->tenantId);
+        $hadTenantContext = $this->currentTenantConnection->connectionName() !== null;
+        $this->resolveTenantRuntimeConnection->handle($messageData->tenantId);
 
-        return DB::transaction(function () use ($messageData): array {
+        try {
+            return $this->transaction(function () use ($messageData): array {
             $existing = CommunicationOutboundMessage::query()
                 ->where('idempotency_key', $messageData->idempotencyKey)
                 ->first();
@@ -131,6 +138,20 @@ class ProcessOutboundMessageAction
                 'communication_message' => $communicationMessage->refresh(),
                 'duplicate' => false,
             ];
-        });
+            });
+        } finally {
+            if (! $hadTenantContext) {
+                $this->currentTenantConnection->clear();
+            }
+        }
+    }
+
+    private function transaction(callable $callback): mixed
+    {
+        $connectionName = $this->currentTenantConnection->connectionName();
+
+        return $connectionName !== null
+            ? DB::connection($connectionName)->transaction($callback)
+            : DB::transaction($callback);
     }
 }

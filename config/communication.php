@@ -11,6 +11,10 @@ return [
 
     'tenancy' => [
         'enforce' => env('COMMUNICATION_TENANCY_ENFORCE', false),
+        'runtime' => [
+            'enabled' => env('COMMUNICATION_TENANT_RUNTIME_ENABLED', false),
+            'connection_name' => env('COMMUNICATION_TENANT_CONNECTION_NAME', 'communication_tenant'),
+        ],
         'database_provisioning' => [
             'enabled' => env('COMMUNICATION_TENANT_DB_PROVISIONING_ENABLED', false),
             'auto_provision' => env('COMMUNICATION_TENANT_DB_AUTO_PROVISION', false),
