@@ -173,6 +173,48 @@ Erros esperados:
 
 Observacao: o endpoint manual ainda nao tem idempotencia propria. Isso e aceitavel por enquanto porque ele e uma ferramenta interna de teste/operacao.
 
+## GET /api/internal/inbox/conversations
+
+Finalidade: listar conversas internas por tenant.
+
+Query obrigatoria:
+
+- `tenant_id`
+
+Filtros opcionais:
+
+- `status`
+- `contact_id`
+- `channel_id`
+- `search`
+- `page`
+- `per_page`
+
+## GET /api/internal/inbox/conversations/{conversation_id}
+
+Finalidade: retornar uma conversa especifica do tenant.
+
+Query obrigatoria:
+
+- `tenant_id`
+
+## GET /api/internal/inbox/conversations/{conversation_id}/messages
+
+Finalidade: listar mensagens de uma conversa do tenant.
+
+Query obrigatoria:
+
+- `tenant_id`
+
+Filtros opcionais:
+
+- `direction`
+- `message_type`
+- `page`
+- `per_page`
+
+Observacao: estes endpoints sao internos e nao implementam auth de usuario, RBAC ou TBAC. Essas permissoes ficam na `orchestra-api`.
+
 ## POST /api/internal/tenants/sync
 
 Finalidade: sincronizar a replica minima de tenant/rede vinda da `orchestra-api`.

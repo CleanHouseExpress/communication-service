@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Internal\AgentRunController;
 use App\Http\Controllers\Internal\HealthController;
+use App\Http\Controllers\Internal\InboxConversationController;
+use App\Http\Controllers\Internal\InboxMessageController;
 use App\Http\Controllers\Internal\InboundMessageController;
 use App\Http\Controllers\Internal\OrchestraTenantEventController;
 use App\Http\Controllers\Internal\OutboundMessageController;
@@ -28,6 +30,15 @@ Route::middleware('throttle:internal-api')->group(function (): void {
         ->middleware('service.token');
 
     Route::post('/internal/outbound/messages', OutboundMessageController::class)
+        ->middleware('service.token');
+
+    Route::get('/internal/inbox/conversations', [InboxConversationController::class, 'index'])
+        ->middleware('service.token');
+
+    Route::get('/internal/inbox/conversations/{conversation_id}/messages', [InboxMessageController::class, 'index'])
+        ->middleware('service.token');
+
+    Route::get('/internal/inbox/conversations/{conversation_id}', [InboxConversationController::class, 'show'])
         ->middleware('service.token');
 
     Route::post('/internal/agent/runs', AgentRunController::class)
