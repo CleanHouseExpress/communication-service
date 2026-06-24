@@ -16,6 +16,24 @@ class ZapiWebhookRequest extends FormRequest
     {
         return [
             '*' => ['nullable'],
+            'messageId' => ['nullable', 'string', 'max:255'],
+            'message_id' => ['nullable', 'string', 'max:255'],
+            'id' => ['nullable', 'string', 'max:255'],
+            'eventId' => ['nullable', 'string', 'max:255'],
+            'event_id' => ['nullable', 'string', 'max:255'],
+            'webhookId' => ['nullable', 'string', 'max:255'],
+            'webhook_id' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:64'],
+            'from' => ['nullable', 'string', 'max:64'],
+            'sender' => ['nullable', 'string', 'max:64'],
+            'participantPhone' => ['nullable', 'string', 'max:64'],
+            'senderName' => ['nullable', 'string', 'max:255'],
+            'sender_name' => ['nullable', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'text' => ['nullable'],
+            'text.message' => ['nullable', 'string', 'max:4096'],
+            'message' => ['nullable', 'string', 'max:4096'],
+            'body' => ['nullable', 'string', 'max:4096'],
         ];
     }
 
@@ -29,6 +47,10 @@ class ZapiWebhookRequest extends FormRequest
 
                 if ($this->firstScalar(['phone', 'from', 'sender', 'participantPhone']) === null) {
                     $validator->errors()->add('phone', 'Webhook payload must include a sender identifier.');
+                }
+
+                if (strlen((string) json_encode($this->all())) > 32768) {
+                    $validator->errors()->add('payload', 'Webhook payload is too large.');
                 }
             },
         ];

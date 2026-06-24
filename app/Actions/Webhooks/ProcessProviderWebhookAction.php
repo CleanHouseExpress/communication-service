@@ -7,6 +7,7 @@ use App\Enums\ProviderType;
 use App\Models\CommunicationRawEvent;
 use App\Support\Normalization\ZapiWebhookNormalizer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 class ProcessProviderWebhookAction
@@ -28,6 +29,12 @@ class ProcessProviderWebhookAction
             $rawEvent = $this->resolveRawEvent($provider, $payload, $externalEventId, $externalMessageId);
 
             if ($rawEvent->processed_at !== null) {
+                Log::info('Provider webhook skipped as duplicate.', [
+                    'provider' => $provider->value,
+                    'message_id' => $rawEvent->external_message_id,
+                    'status' => 'duplicate',
+                ]);
+
                 return [
                     'raw_event' => $rawEvent,
                     'duplicate' => true,
@@ -43,6 +50,14 @@ class ProcessProviderWebhookAction
                 'normalized_payload' => $normalized->toArray(),
                 'processed_at' => now(),
             ])->save();
+
+            Log::info('Provider webhook processed.', [
+                'tenant_id' => $result['message']->tenant_id ?? null,
+                'provider' => $provider->value,
+                'message_id' => $result['message']->id ?? null,
+                'conversation_id' => $result['conversation']->id ?? null,
+                'status' => 'processed',
+            ]);
 
             return [
                 'raw_event' => $rawEvent->refresh(),

@@ -19,7 +19,30 @@ class VerifyProviderWebhookSignature
 
     private function isValidSignature(Request $request): bool
     {
-        // Extension point for provider-specific signature checks.
-        return app()->environment(['local', 'testing']) || ! config('communication.providers.zapi.enabled');
+        if (! config('communication.providers.zapi.enabled')) {
+            return true;
+        }
+
+        if (app()->environment(['local', 'testing']) && (bool) config('communication.providers.zapi.allow_unsigned_webhook_local', true)) {
+            return true;
+        }
+
+        $secret = config('communication.providers.zapi.webhook_secret');
+        $signatureHeader = config('communication.providers.zapi.webhook_signature_header', 'X-Zapi-Signature');
+
+        if (! is_string($secret) || $secret === '' || ! is_string($signatureHeader) || $signatureHeader === '') {
+            return false;
+        }
+
+        $providedSignature = $request->headers->get($signatureHeader);
+
+        if (! is_string($providedSignature) || $providedSignature === '') {
+            return false;
+        }
+
+        $expectedHmac = hash_hmac('sha256', $request->getContent(), $secret);
+
+        return hash_equals($secret, $providedSignature)
+            || hash_equals($expectedHmac, $providedSignature);
     }
 }

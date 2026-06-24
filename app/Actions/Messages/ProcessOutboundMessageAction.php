@@ -10,6 +10,7 @@ use App\Models\CommunicationMessage;
 use App\Models\CommunicationOutboundMessage;
 use App\Services\Providers\ZapiClient;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 class ProcessOutboundMessageAction
@@ -26,6 +27,14 @@ class ProcessOutboundMessageAction
                 ->first();
 
             if ($existing !== null) {
+                Log::info('Outbound message skipped as duplicate.', [
+                    'tenant_id' => $existing->tenant_id,
+                    'provider' => $existing->provider,
+                    'message_id' => $existing->communication_message_id,
+                    'conversation_id' => $existing->conversation_id,
+                    'status' => 'duplicate',
+                ]);
+
                 return [
                     'outbound_message' => $existing,
                     'communication_message' => $existing->communicationMessage,
@@ -84,6 +93,14 @@ class ProcessOutboundMessageAction
                     'external_message_id' => $result->providerMessageId,
                     'status' => MessageStatus::Sent->value,
                 ])->save();
+
+                Log::info('Outbound message sent.', [
+                    'tenant_id' => $outboundMessage->tenant_id,
+                    'provider' => $outboundMessage->provider,
+                    'message_id' => $communicationMessage->id,
+                    'conversation_id' => $outboundMessage->conversation_id,
+                    'status' => MessageStatus::Sent->value,
+                ]);
             } else {
                 $outboundMessage->forceFill([
                     'status' => MessageStatus::Failed->value,
@@ -94,6 +111,15 @@ class ProcessOutboundMessageAction
                 $communicationMessage->forceFill([
                     'status' => MessageStatus::Failed->value,
                 ])->save();
+
+                Log::warning('Outbound message failed.', [
+                    'tenant_id' => $outboundMessage->tenant_id,
+                    'provider' => $outboundMessage->provider,
+                    'message_id' => $communicationMessage->id,
+                    'conversation_id' => $outboundMessage->conversation_id,
+                    'status' => MessageStatus::Failed->value,
+                    'error' => $result->error,
+                ]);
             }
 
             return [

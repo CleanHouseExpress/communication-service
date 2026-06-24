@@ -2,21 +2,29 @@
 
 namespace App\Actions\Messages;
 
+use App\Actions\Agents\DispatchMessageToAgentAction;
 use App\DTO\Messages\InboundMessageData;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Enums\MessageType;
 use App\Models\CommunicationChannel;
 use App\Models\CommunicationContact;
 use App\Models\CommunicationConversation;
 use App\Models\CommunicationMessage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ProcessInboundMessageAction
 {
+    public function __construct(
+        private readonly DispatchMessageToAgentAction $dispatchMessageToAgent,
+    ) {}
+
     public function handle(InboundMessageData $messageData): array
     {
-        return DB::transaction(function () use ($messageData): array {
+        $result = DB::transaction(function () use ($messageData): array {
             $channel = $this->resolveChannel($messageData);
             $contact = $this->resolveContact($messageData);
             $conversation = $this->resolveConversation($messageData, $channel, $contact);
@@ -54,6 +62,45 @@ class ProcessInboundMessageAction
                 'message_created' => $created,
             ];
         });
+
+        if ($this->shouldDispatchToAgent($result)) {
+            try {
+                $result['agent_run'] = $this->dispatchMessageToAgent->handle($result['message']);
+            } catch (Throwable $exception) {
+                Log::warning('Inbound agent dispatch failed without interrupting message processing.', [
+                    'tenant_id' => $result['message']->tenant_id ?? null,
+                    'provider' => $result['message']->provider ?? null,
+                    'message_id' => $result['message']->id ?? null,
+                    'conversation_id' => $result['message']->conversation_id ?? null,
+                    'status' => 'agent_dispatch_failed',
+                    'error' => $exception->getMessage(),
+                ]);
+
+                report($exception);
+            }
+        }
+
+        Log::info('Inbound message processed.', [
+            'tenant_id' => $result['message']->tenant_id ?? null,
+            'provider' => $result['message']->provider ?? null,
+            'message_id' => $result['message']->id ?? null,
+            'conversation_id' => $result['conversation']->id ?? null,
+            'status' => $result['message_created'] ? 'created' : 'duplicate',
+        ]);
+
+        return $result;
+    }
+
+    private function shouldDispatchToAgent(array $result): bool
+    {
+        /** @var CommunicationMessage|null $message */
+        $message = $result['message'] ?? null;
+
+        return (bool) config('communication.agent.enabled', false)
+            && (bool) ($result['message_created'] ?? false)
+            && $message instanceof CommunicationMessage
+            && $message->direction === MessageDirection::Inbound->value
+            && $message->message_type === MessageType::Text->value;
     }
 
     private function resolveChannel(InboundMessageData $messageData): CommunicationChannel

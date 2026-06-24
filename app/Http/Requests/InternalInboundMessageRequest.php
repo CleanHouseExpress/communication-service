@@ -18,17 +18,17 @@ class InternalInboundMessageRequest extends FormRequest
     {
         return [
             'provider' => ['required', Rule::enum(ProviderType::class)],
-            'tenant_id' => ['nullable', 'string'],
-            'channel_id' => ['nullable', 'string'],
-            'external_event_id' => ['nullable', 'string'],
-            'external_message_id' => ['nullable', 'string'],
-            'external_contact_id' => ['required', 'string'],
-            'contact_name' => ['nullable', 'string'],
-            'contact_phone' => ['nullable', 'string'],
+            'tenant_id' => ['nullable', 'string', 'max:128'],
+            'channel_id' => ['nullable', 'string', 'max:128'],
+            'external_event_id' => ['nullable', 'string', 'max:255'],
+            'external_message_id' => ['nullable', 'string', 'max:255'],
+            'external_contact_id' => ['required', 'string', 'max:64'],
+            'contact_name' => ['nullable', 'string', 'max:255'],
+            'contact_phone' => ['nullable', 'string', 'max:64'],
             'message_type' => ['required', Rule::enum(MessageType::class)],
-            'text' => ['nullable', 'string'],
+            'text' => ['nullable', 'string', 'max:4096'],
             'occurred_at' => ['nullable', 'date'],
-            'raw_payload' => ['nullable', 'array'],
+            'raw_payload' => ['nullable', 'array', 'max:100'],
         ];
     }
 }

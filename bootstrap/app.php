@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         then: function (): void {
+            RateLimiter::for('internal-health', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
             RateLimiter::for('internal-api', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
             RateLimiter::for('provider-webhooks', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
             RateLimiter::for('agent-callbacks', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));

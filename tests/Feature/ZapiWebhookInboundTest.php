@@ -78,6 +78,50 @@ class ZapiWebhookInboundTest extends TestCase
         $this->assertSame(1, CommunicationMessage::count());
     }
 
+    public function test_duplicate_zapi_webhook_by_external_event_id_does_not_create_duplicate_message(): void
+    {
+        $payload = [
+            ...$this->payload(),
+            'eventId' => 'zapi-event-1',
+        ];
+
+        $this->postJson('/api/providers/zapi/webhook', $payload)->assertOk();
+
+        $this->postJson('/api/providers/zapi/webhook', [
+            ...$payload,
+            'text' => [
+                'message' => 'Mensagem repetida pelo mesmo evento',
+            ],
+        ])
+            ->assertOk()
+            ->assertJson([
+                'duplicate' => true,
+            ]);
+
+        $this->assertSame(1, CommunicationRawEvent::count());
+        $this->assertSame(1, CommunicationMessage::count());
+    }
+
+    public function test_duplicate_zapi_webhook_by_external_message_id_does_not_create_duplicate_message(): void
+    {
+        $this->postJson('/api/providers/zapi/webhook', [
+            ...$this->payload(),
+            'eventId' => 'zapi-event-1',
+        ])->assertOk();
+
+        $this->postJson('/api/providers/zapi/webhook', [
+            ...$this->payload(),
+            'eventId' => 'zapi-event-2',
+        ])
+            ->assertOk()
+            ->assertJson([
+                'duplicate' => true,
+            ]);
+
+        $this->assertSame(2, CommunicationRawEvent::count());
+        $this->assertSame(1, CommunicationMessage::count());
+    }
+
     private function payload(): array
     {
         return [
