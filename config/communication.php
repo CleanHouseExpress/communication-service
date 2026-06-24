@@ -14,6 +14,8 @@ return [
             'instance_id' => env('COMMUNICATION_ZAPI_INSTANCE_ID'),
             'token' => env('COMMUNICATION_ZAPI_TOKEN'),
             'client_token' => env('COMMUNICATION_ZAPI_CLIENT_TOKEN'),
+            'fake' => env('COMMUNICATION_ZAPI_FAKE', true),
+            'fake_failure' => env('COMMUNICATION_ZAPI_FAKE_FAILURE', false),
         ],
     ],
 

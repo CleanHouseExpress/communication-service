@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Internal\InboundMessageController;
+use App\Http\Controllers\Internal\OutboundMessageController;
 use App\Http\Controllers\Providers\ZapiWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +22,9 @@ Route::middleware('throttle:internal-api')->group(function (): void {
     ])->middleware('service.token');
 
     Route::post('/internal/inbound/messages', InboundMessageController::class)
+        ->middleware('service.token');
+
+    Route::post('/internal/outbound/messages', OutboundMessageController::class)
         ->middleware('service.token');
 });
 
