@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Internal\InboundMessageController;
+use App\Http\Controllers\Providers\ZapiWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:internal-api')->group(function (): void {
@@ -17,4 +19,10 @@ Route::middleware('throttle:internal-api')->group(function (): void {
         'status' => 'ok',
         'authenticated' => true,
     ])->middleware('service.token');
+
+    Route::post('/internal/inbound/messages', InboundMessageController::class)
+        ->middleware('service.token');
 });
+
+Route::post('/providers/zapi/webhook', ZapiWebhookController::class)
+    ->middleware(['throttle:provider-webhooks', 'provider.webhook.signature']);
