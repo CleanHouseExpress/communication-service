@@ -16,6 +16,12 @@ class ConversationResource extends JsonResource
             'contact_id' => $this->contact_id,
             'status' => $this->status,
             'last_message_at' => $this->last_message_at?->toIso8601String(),
+            'handoff_requested_at' => $this->handoff_requested_at?->toIso8601String(),
+            'handoff_reason' => $this->handoff_reason,
+            'assigned_external_user_id' => $this->assigned_external_user_id,
+            'assigned_external_user_name' => $this->assigned_external_user_name,
+            'assigned_at' => $this->assigned_at?->toIso8601String(),
+            'closed_at' => $this->closed_at?->toIso8601String(),
             'contact' => $this->whenLoaded('contact', fn (): ?array => $this->contact ? [
                 'id' => $this->contact->id,
                 'name' => $this->contact->name,

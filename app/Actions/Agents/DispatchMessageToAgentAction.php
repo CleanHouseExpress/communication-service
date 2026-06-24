@@ -2,6 +2,7 @@
 
 namespace App\Actions\Agents;
 
+use App\Actions\Conversations\RequestConversationHandoffAction;
 use App\Actions\Messages\ProcessOutboundMessageAction;
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\DTO\Agents\AgentRequestData;
@@ -26,6 +27,7 @@ class DispatchMessageToAgentAction
         private readonly TenantResolver $tenantResolver,
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
+        private readonly RequestConversationHandoffAction $requestConversationHandoff,
     ) {}
 
     public function handle(CommunicationMessage $message): CommunicationAgentRun
@@ -111,6 +113,14 @@ class DispatchMessageToAgentAction
                     'should_handoff' => $responseData->shouldHandoff,
                 ],
             ));
+        }
+
+        if ($responseData->success && $responseData->shouldHandoff) {
+            $this->requestConversationHandoff->handle(
+                conversationId: (string) $message->conversation_id,
+                tenantId: $message->tenant_id,
+                reason: 'Agent requested human handoff.',
+            );
         }
 
             return $agentRun->refresh();

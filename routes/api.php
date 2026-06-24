@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Internal\AgentRunController;
+use App\Http\Controllers\Internal\ConversationHandoffController;
 use App\Http\Controllers\Internal\HealthController;
 use App\Http\Controllers\Internal\InboxConversationController;
 use App\Http\Controllers\Internal\InboxMessageController;
@@ -36,6 +37,18 @@ Route::middleware('throttle:internal-api')->group(function (): void {
         ->middleware('service.token');
 
     Route::get('/internal/inbox/conversations/{conversation_id}/messages', [InboxMessageController::class, 'index'])
+        ->middleware('service.token');
+
+    Route::post('/internal/inbox/conversations/{conversation_id}/request-handoff', [ConversationHandoffController::class, 'requestHandoff'])
+        ->middleware('service.token');
+
+    Route::post('/internal/inbox/conversations/{conversation_id}/assign', [ConversationHandoffController::class, 'assign'])
+        ->middleware('service.token');
+
+    Route::post('/internal/inbox/conversations/{conversation_id}/close', [ConversationHandoffController::class, 'close'])
+        ->middleware('service.token');
+
+    Route::post('/internal/inbox/conversations/{conversation_id}/reopen', [ConversationHandoffController::class, 'reopen'])
         ->middleware('service.token');
 
     Route::get('/internal/inbox/conversations/{conversation_id}', [InboxConversationController::class, 'show'])

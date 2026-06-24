@@ -82,6 +82,7 @@ Responses do not include raw provider payloads, provider responses, tokens, head
 
 - Internal service token only; no user auth.
 - No RBAC/TBAC enforcement in communication-service.
+- Handoff endpoints store operational state only; authorization remains in Orchestra.
 - No read receipts.
 - No assignment/handoff workflow.
 - No websocket/realtime.

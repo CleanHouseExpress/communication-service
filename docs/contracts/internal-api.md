@@ -215,6 +215,60 @@ Filtros opcionais:
 
 Observacao: estes endpoints sao internos e nao implementam auth de usuario, RBAC ou TBAC. Essas permissoes ficam na `orchestra-api`.
 
+## POST /api/internal/inbox/conversations/{conversation_id}/request-handoff
+
+Finalidade: marcar conversa como aguardando atendimento humano.
+
+Payload:
+
+```json
+{
+  "tenant_id": "tenant-1",
+  "reason": "Cliente pediu atendimento humano"
+}
+```
+
+## POST /api/internal/inbox/conversations/{conversation_id}/assign
+
+Finalidade: registrar atribuicao operacional para um usuario externo da Orchestra.
+
+Payload:
+
+```json
+{
+  "tenant_id": "tenant-1",
+  "external_user_id": "user-123",
+  "external_user_name": "Atendente"
+}
+```
+
+## POST /api/internal/inbox/conversations/{conversation_id}/close
+
+Finalidade: fechar conversa operacionalmente.
+
+Payload:
+
+```json
+{
+  "tenant_id": "tenant-1",
+  "reason": "Resolvido"
+}
+```
+
+## POST /api/internal/inbox/conversations/{conversation_id}/reopen
+
+Finalidade: reabrir conversa fechada.
+
+Payload:
+
+```json
+{
+  "tenant_id": "tenant-1"
+}
+```
+
+Observacao: estes endpoints nao implementam usuarios, permissoes, RBAC ou TBAC. Eles apenas registram estado operacional.
+
 ## POST /api/internal/tenants/sync
 
 Finalidade: sincronizar a replica minima de tenant/rede vinda da `orchestra-api`.

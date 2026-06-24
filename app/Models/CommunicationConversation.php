@@ -19,6 +19,12 @@ class CommunicationConversation extends Model
         'contact_id',
         'status',
         'last_message_at',
+        'handoff_requested_at',
+        'handoff_reason',
+        'assigned_external_user_id',
+        'assigned_external_user_name',
+        'assigned_at',
+        'closed_at',
         'metadata',
     ];
 
@@ -26,6 +32,9 @@ class CommunicationConversation extends Model
     {
         return [
             'last_message_at' => 'datetime',
+            'handoff_requested_at' => 'datetime',
+            'assigned_at' => 'datetime',
+            'closed_at' => 'datetime',
             'metadata' => 'array',
         ];
     }
