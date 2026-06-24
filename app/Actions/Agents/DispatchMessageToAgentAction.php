@@ -12,6 +12,7 @@ use App\Models\CommunicationAgentRun;
 use App\Models\CommunicationMessage;
 use App\Services\Agents\N8nAgentClient;
 use App\Support\Security\AgentPromptGuard;
+use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\Log;
 
 class DispatchMessageToAgentAction
@@ -20,10 +21,13 @@ class DispatchMessageToAgentAction
         private readonly N8nAgentClient $agentClient,
         private readonly ProcessOutboundMessageAction $processOutboundMessage,
         private readonly AgentPromptGuard $agentPromptGuard,
+        private readonly TenantResolver $tenantResolver,
     ) {}
 
     public function handle(CommunicationMessage $message): CommunicationAgentRun
     {
+        $this->tenantResolver->enforceIfEnabled($message->tenant_id);
+
         $message->loadMissing(['contact', 'conversation', 'channel']);
         $requestData = $this->requestData($message);
 

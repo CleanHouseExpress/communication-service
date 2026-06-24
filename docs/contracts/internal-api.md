@@ -172,3 +172,39 @@ Erros esperados:
 - `422` payload invalido.
 
 Observacao: o endpoint manual ainda nao tem idempotencia propria. Isso e aceitavel por enquanto porque ele e uma ferramenta interna de teste/operacao.
+
+## POST /api/internal/tenants/sync
+
+Finalidade: sincronizar a replica minima de tenant/rede vinda da `orchestra-api`.
+
+Payload exemplo:
+
+```json
+{
+  "orchestra_tenant_id": "tenant-1",
+  "name": "Rede Exemplo",
+  "slug": "rede-exemplo",
+  "status": "active",
+  "timezone": "America/Sao_Paulo",
+  "metadata": {}
+}
+```
+
+Resposta exemplo:
+
+```json
+{
+  "tenant_id": "uuid-local",
+  "orchestra_tenant_id": "tenant-1",
+  "status": "active",
+  "synced_at": "2026-06-24T12:00:00-03:00"
+}
+```
+
+Erros esperados:
+
+- `401` token ausente;
+- `403` token invalido;
+- `422` payload invalido.
+
+Observacao: este endpoint apenas replica dados minimos no landlord do communication-service. Ele nao cria banco tenant, nao copia usuarios e nao replica RBAC/TBAC.

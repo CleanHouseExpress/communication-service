@@ -9,6 +9,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use App\Http\Middleware\ApiSecurityHeaders;
 use App\Http\Middleware\EnsureServiceToken;
 use App\Http\Middleware\VerifyProviderWebhookSignature;
+use App\Support\Tenancy\TenantResolutionException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -35,4 +36,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        $exceptions->render(function (TenantResolutionException $exception, Request $request) {
+            return response()->json([
+                'message' => 'Communication tenant is not active or was not found.',
+            ], 422);
+        });
     })->create();

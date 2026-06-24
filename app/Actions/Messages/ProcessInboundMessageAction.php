@@ -12,6 +12,7 @@ use App\Models\CommunicationChannel;
 use App\Models\CommunicationContact;
 use App\Models\CommunicationConversation;
 use App\Models\CommunicationMessage;
+use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -20,10 +21,13 @@ class ProcessInboundMessageAction
 {
     public function __construct(
         private readonly DispatchMessageToAgentAction $dispatchMessageToAgent,
+        private readonly TenantResolver $tenantResolver,
     ) {}
 
     public function handle(InboundMessageData $messageData): array
     {
+        $this->tenantResolver->enforceIfEnabled($messageData->tenantId);
+
         $result = DB::transaction(function () use ($messageData): array {
             $channel = $this->resolveChannel($messageData);
             $contact = $this->resolveContact($messageData);

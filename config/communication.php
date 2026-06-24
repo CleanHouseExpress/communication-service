@@ -9,6 +9,10 @@ return [
 
     'default_provider' => env('COMMUNICATION_DEFAULT_PROVIDER', 'zapi'),
 
+    'tenancy' => [
+        'enforce' => env('COMMUNICATION_TENANCY_ENFORCE', false),
+    ],
+
     'providers' => [
         'zapi' => [
             'enabled' => env('COMMUNICATION_ZAPI_ENABLED', false),
