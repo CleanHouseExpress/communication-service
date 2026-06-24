@@ -33,11 +33,30 @@ Query:
 
 - `tenant_id` required string;
 - `status` optional: `open`, `pending`, `closed`;
+- `assignment_status` optional: `unassigned`, `assigned`;
+- `assigned_external_user_id` optional string;
+- `handoff` optional: `requested`, `none`;
+- `has_handoff_requested` optional boolean (`true`, `false`, `1`, `0`);
+- `closed` optional boolean (`true`, `false`, `1`, `0`);
+- `last_message_from` optional: `inbound`, `outbound`;
+- `updated_since` optional date;
+- `sort` optional: `last_message_at`, `created_at`, `updated_at`;
+- `direction` optional: `asc`, `desc`;
 - `contact_id` optional UUID;
 - `channel_id` optional UUID;
 - `search` optional string, searches contact fields and message text;
 - `page` optional;
 - `per_page` optional, max 100.
+
+Default ordering is `last_message_at desc`.
+
+Examples:
+
+```http
+GET /api/internal/inbox/conversations?tenant_id=tenant-1&handoff=requested&assignment_status=unassigned
+GET /api/internal/inbox/conversations?tenant_id=tenant-1&assigned_external_user_id=user-123&closed=false
+GET /api/internal/inbox/conversations?tenant_id=tenant-1&last_message_from=inbound&sort=updated_at&direction=desc
+```
 
 ### GET /api/internal/inbox/conversations/{conversation_id}
 
@@ -59,7 +78,7 @@ Query:
 
 ## Response Safety
 
-Conversation responses include IDs, status, contact summary and latest message summary.
+Conversation responses include IDs, status, `assignment_status`, `has_handoff_requested`, contact summary and latest message summary.
 
 Message responses include safe message fields only:
 
@@ -84,6 +103,6 @@ Responses do not include raw provider payloads, provider responses, tokens, head
 - No RBAC/TBAC enforcement in communication-service.
 - Handoff endpoints store operational state only; authorization remains in Orchestra.
 - No read receipts.
-- No assignment/handoff workflow.
+- Assignment and handoff are operational fields only; authorization remains in Orchestra.
 - No websocket/realtime.
-- No advanced filters, export or analytics.
+- No aggregate counters, SLA, export or analytics.

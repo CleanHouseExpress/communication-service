@@ -55,6 +55,165 @@ class InternalInboxReadApiTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
+    public function test_index_filters_by_assignment_status(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $assigned = $this->conversation('tenant-1', [
+            'assigned_external_user_id' => 'agent-1',
+            'assigned_external_user_name' => 'Atendente Um',
+            'assigned_at' => now(),
+        ]);
+        $unassigned = $this->conversation('tenant-1');
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&assignment_status=assigned')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $assigned->id)
+            ->assertJsonPath('data.0.assignment_status', 'assigned')
+            ->assertJsonCount(1, 'data');
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&assignment_status=unassigned')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $unassigned->id)
+            ->assertJsonPath('data.0.assignment_status', 'unassigned')
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_filters_by_assigned_external_user_id(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $match = $this->conversation('tenant-1', [
+            'assigned_external_user_id' => 'user-123',
+            'assigned_at' => now(),
+        ]);
+        $this->conversation('tenant-1', [
+            'assigned_external_user_id' => 'user-456',
+            'assigned_at' => now(),
+        ]);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&assigned_external_user_id=user-123')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $match->id)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_filters_by_handoff_requested(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $handoff = $this->conversation('tenant-1', [
+            'handoff_requested_at' => now(),
+            'handoff_reason' => 'Precisa de humano',
+        ]);
+        $this->conversation('tenant-1');
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&handoff=requested')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $handoff->id)
+            ->assertJsonPath('data.0.has_handoff_requested', true)
+            ->assertJsonCount(1, 'data');
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&has_handoff_requested=true')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $handoff->id)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_filters_by_closed_flag(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $closed = $this->conversation('tenant-1', [
+            'status' => 'closed',
+            'closed_at' => now(),
+        ]);
+        $open = $this->conversation('tenant-1');
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&closed=true')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $closed->id)
+            ->assertJsonCount(1, 'data');
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&closed=false')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $open->id)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_index_filters_by_last_message_from(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $inboundLatest = $this->conversation('tenant-1', ['with_message' => false]);
+        $this->message($inboundLatest, [
+            'direction' => 'outbound',
+            'occurred_at' => now()->subMinutes(5),
+        ]);
+        $this->message($inboundLatest, [
+            'direction' => 'inbound',
+            'occurred_at' => now(),
+        ]);
+
+        $outboundLatest = $this->conversation('tenant-1', ['with_message' => false]);
+        $this->message($outboundLatest, [
+            'direction' => 'inbound',
+            'occurred_at' => now()->subMinutes(5),
+        ]);
+        $this->message($outboundLatest, [
+            'direction' => 'outbound',
+            'occurred_at' => now(),
+        ]);
+
+        $response = $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&last_message_from=outbound')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->assertSame($outboundLatest->id, $response->json('data.0.id'));
+    }
+
+    public function test_index_allows_safe_sort_and_direction(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $older = $this->conversation('tenant-1', [
+            'last_message_at' => now()->subDay(),
+        ]);
+        $newer = $this->conversation('tenant-1', [
+            'last_message_at' => now(),
+        ]);
+
+        $response = $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&sort=last_message_at&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->assertSame([$older->id, $newer->id], collect($response->json('data'))->pluck('id')->all());
+    }
+
+    public function test_index_rejects_invalid_sort_and_direction(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&sort=tenant_id')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('sort');
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&direction=sideways')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('direction');
+    }
+
     public function test_index_searches_by_contact_and_message_text(): void
     {
         config(['communication.service_token' => 'valid-token']);
@@ -185,7 +344,13 @@ class InternalInboxReadApiTest extends TestCase
             'channel_id' => $channel->id,
             'contact_id' => $contact->id,
             'status' => $overrides['status'] ?? 'open',
-            'last_message_at' => now(),
+            'last_message_at' => $overrides['last_message_at'] ?? now(),
+            'handoff_requested_at' => $overrides['handoff_requested_at'] ?? null,
+            'handoff_reason' => $overrides['handoff_reason'] ?? null,
+            'assigned_external_user_id' => $overrides['assigned_external_user_id'] ?? null,
+            'assigned_external_user_name' => $overrides['assigned_external_user_name'] ?? null,
+            'assigned_at' => $overrides['assigned_at'] ?? null,
+            'closed_at' => $overrides['closed_at'] ?? null,
         ]);
 
         if (($overrides['with_message'] ?? true) !== false) {

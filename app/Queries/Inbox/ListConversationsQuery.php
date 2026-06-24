@@ -4,7 +4,9 @@ namespace App\Queries\Inbox;
 
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\Models\CommunicationConversation;
+use App\Models\CommunicationMessage;
 use App\Support\Tenancy\CurrentTenantConnection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ListConversationsQuery
@@ -31,6 +33,50 @@ class ListConversationsQuery
                 $query->where('status', $filters['status']);
             }
 
+            if (! empty($filters['assignment_status'])) {
+                $filters['assignment_status'] === 'assigned'
+                    ? $query->whereNotNull('assigned_external_user_id')
+                    : $query->whereNull('assigned_external_user_id');
+            }
+
+            if (! empty($filters['assigned_external_user_id'])) {
+                $query->where('assigned_external_user_id', $filters['assigned_external_user_id']);
+            }
+
+            if (! empty($filters['handoff'])) {
+                $filters['handoff'] === 'requested'
+                    ? $query->whereNotNull('handoff_requested_at')
+                    : $query->whereNull('handoff_requested_at');
+            }
+
+            if (array_key_exists('has_handoff_requested', $filters)) {
+                filter_var($filters['has_handoff_requested'], FILTER_VALIDATE_BOOLEAN)
+                    ? $query->whereNotNull('handoff_requested_at')
+                    : $query->whereNull('handoff_requested_at');
+            }
+
+            if (array_key_exists('closed', $filters)) {
+                filter_var($filters['closed'], FILTER_VALIDATE_BOOLEAN)
+                    ? $query->whereNotNull('closed_at')
+                    : $query->whereNull('closed_at');
+            }
+
+            if (! empty($filters['last_message_from'])) {
+                $query->where(
+                    CommunicationMessage::query()
+                        ->select('direction')
+                        ->whereColumn('communication_messages.conversation_id', 'communication_conversations.id')
+                        ->latest('occurred_at')
+                        ->latest('created_at')
+                        ->limit(1),
+                    $filters['last_message_from']
+                );
+            }
+
+            if (! empty($filters['updated_since'])) {
+                $query->where('updated_at', '>=', $filters['updated_since']);
+            }
+
             if (! empty($filters['contact_id'])) {
                 $query->where('contact_id', $filters['contact_id']);
             }
@@ -53,9 +99,12 @@ class ListConversationsQuery
                 });
             }
 
+            $sort = $filters['sort'] ?? 'last_message_at';
+            $direction = $filters['direction'] ?? 'desc';
+
             return $query
-                ->orderByDesc('last_message_at')
-                ->orderByDesc('created_at')
+                ->orderBy($sort, $direction)
+                ->when($sort !== 'created_at', fn (Builder $query) => $query->orderByDesc('created_at'))
                 ->paginate((int) ($filters['per_page'] ?? 15));
         } finally {
             if (! $hadTenantContext) {

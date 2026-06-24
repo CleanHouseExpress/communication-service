@@ -16,6 +16,8 @@ class ConversationResource extends JsonResource
             'contact_id' => $this->contact_id,
             'status' => $this->status,
             'last_message_at' => $this->last_message_at?->toIso8601String(),
+            'assignment_status' => $this->assigned_external_user_id ? 'assigned' : 'unassigned',
+            'has_handoff_requested' => $this->handoff_requested_at !== null,
             'handoff_requested_at' => $this->handoff_requested_at?->toIso8601String(),
             'handoff_reason' => $this->handoff_reason,
             'assigned_external_user_id' => $this->assigned_external_user_id,

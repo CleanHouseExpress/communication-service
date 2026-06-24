@@ -184,11 +184,49 @@ Query obrigatoria:
 Filtros opcionais:
 
 - `status`
+- `assignment_status`: `unassigned` ou `assigned`
+- `assigned_external_user_id`
+- `handoff`: `requested` ou `none`
+- `has_handoff_requested`: boolean (`true`, `false`, `1`, `0`)
+- `closed`: boolean (`true`, `false`, `1`, `0`)
+- `last_message_from`: `inbound` ou `outbound`
+- `updated_since`: date
+- `sort`: `last_message_at`, `created_at` ou `updated_at`
+- `direction`: `asc` ou `desc`
 - `contact_id`
 - `channel_id`
 - `search`
 - `page`
 - `per_page`
+
+Ordenacao padrao: `last_message_at desc`.
+
+Exemplo:
+
+```http
+GET /api/internal/inbox/conversations?tenant_id=tenant-1&handoff=requested&assignment_status=unassigned
+GET /api/internal/inbox/conversations?tenant_id=tenant-1&assigned_external_user_id=user-123&closed=false
+GET /api/internal/inbox/conversations?tenant_id=tenant-1&last_message_from=inbound&sort=updated_at&direction=desc
+```
+
+Resposta exemplo:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "tenant_id": "tenant-1",
+      "status": "pending",
+      "assignment_status": "unassigned",
+      "has_handoff_requested": true,
+      "handoff_requested_at": "2026-06-24T12:00:00-03:00",
+      "assigned_external_user_id": null,
+      "closed_at": null
+    }
+  ]
+}
+```
 
 ## GET /api/internal/inbox/conversations/{conversation_id}
 
