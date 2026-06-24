@@ -11,6 +11,16 @@ return [
 
     'tenancy' => [
         'enforce' => env('COMMUNICATION_TENANCY_ENFORCE', false),
+        'database_provisioning' => [
+            'enabled' => env('COMMUNICATION_TENANT_DB_PROVISIONING_ENABLED', false),
+            'auto_provision' => env('COMMUNICATION_TENANT_DB_AUTO_PROVISION', false),
+            'prefix' => env('COMMUNICATION_TENANT_DB_PREFIX', 'communication_tenant_'),
+            'host' => env('COMMUNICATION_TENANT_DB_HOST'),
+            'port' => env('COMMUNICATION_TENANT_DB_PORT', 3306),
+            'username' => env('COMMUNICATION_TENANT_DB_USERNAME'),
+            'password' => env('COMMUNICATION_TENANT_DB_PASSWORD'),
+            'driver' => env('COMMUNICATION_TENANT_DB_DRIVER', 'mysql'),
+        ],
     ],
 
     'providers' => [

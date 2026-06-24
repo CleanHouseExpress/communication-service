@@ -209,6 +209,36 @@ Erros esperados:
 
 Observacao: este endpoint apenas replica dados minimos no landlord do communication-service. Ele nao cria banco tenant, nao copia usuarios e nao replica RBAC/TBAC.
 
+## POST /api/internal/tenants/{orchestra_tenant_id}/provision-database
+
+Finalidade: preparar a connection de banco de comunicacao para um tenant ativo.
+
+Payload: vazio.
+
+Resposta exemplo:
+
+```json
+{
+  "tenant_id": "uuid-local",
+  "orchestra_tenant_id": "tenant_123",
+  "connection_id": "uuid",
+  "database_name": "communication_tenant_rede_exemplo",
+  "database_host": "db.example.internal",
+  "database_port": 3306,
+  "database_driver": "mysql",
+  "status": "skipped",
+  "migrated_at": null
+}
+```
+
+Erros esperados:
+
+- `401` token ausente;
+- `403` token invalido;
+- `422` tenant inexistente ou desabilitado.
+
+Observacao: com `COMMUNICATION_TENANT_DB_PROVISIONING_ENABLED=false`, nenhum banco fisico e criado. A connection fica registrada como `skipped`.
+
 ## POST /api/internal/orchestra/events/tenants
 
 Finalidade: receber eventos internos da `orchestra-api` para sincronizacao idempotente da replica minima de tenants.

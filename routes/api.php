@@ -5,6 +5,7 @@ use App\Http\Controllers\Internal\HealthController;
 use App\Http\Controllers\Internal\InboundMessageController;
 use App\Http\Controllers\Internal\OrchestraTenantEventController;
 use App\Http\Controllers\Internal\OutboundMessageController;
+use App\Http\Controllers\Internal\TenantDatabaseProvisionController;
 use App\Http\Controllers\Internal\TenantSyncController;
 use App\Http\Controllers\Providers\ZapiWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -33,6 +34,9 @@ Route::middleware('throttle:internal-api')->group(function (): void {
         ->middleware('service.token');
 
     Route::post('/internal/tenants/sync', TenantSyncController::class)
+        ->middleware('service.token');
+
+    Route::post('/internal/tenants/{orchestra_tenant_id}/provision-database', TenantDatabaseProvisionController::class)
         ->middleware('service.token');
 
     Route::post('/internal/orchestra/events/tenants', OrchestraTenantEventController::class)

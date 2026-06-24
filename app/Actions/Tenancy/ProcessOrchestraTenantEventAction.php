@@ -15,6 +15,7 @@ class ProcessOrchestraTenantEventAction
     public function __construct(
         private readonly OrchestraTenantEventNormalizer $normalizer,
         private readonly UpsertTenantReplicaAction $upsertTenantReplica,
+        private readonly ProvisionTenantDatabaseAction $provisionTenantDatabase,
     ) {}
 
     public function handle(array $payload): array
@@ -65,6 +66,10 @@ class ProcessOrchestraTenantEventAction
 
             try {
                 $tenant = $this->upsertTenantReplica->handle($eventData->toTenantReplicaData());
+
+                if ($eventData->eventType === 'TenantCreated' && (bool) config('communication.tenancy.database_provisioning.auto_provision', false)) {
+                    $this->provisionTenantDatabase->handle($tenant);
+                }
 
                 $event->forceFill([
                     'status' => IntegrationEventStatus::Processed->value,
