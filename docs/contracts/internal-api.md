@@ -208,3 +208,57 @@ Erros esperados:
 - `422` payload invalido.
 
 Observacao: este endpoint apenas replica dados minimos no landlord do communication-service. Ele nao cria banco tenant, nao copia usuarios e nao replica RBAC/TBAC.
+
+## POST /api/internal/orchestra/events/tenants
+
+Finalidade: receber eventos internos da `orchestra-api` para sincronizacao idempotente da replica minima de tenants.
+
+Eventos suportados:
+
+- `TenantCreated`
+- `TenantUpdated`
+- `TenantDisabled`
+- `TenantEnabled`
+
+Payload exemplo:
+
+```json
+{
+  "event_id": "evt_123",
+  "event_type": "TenantCreated",
+  "occurred_at": "2026-06-24T15:00:00-03:00",
+  "tenant": {
+    "id": "tenant_123",
+    "name": "Rede Exemplo",
+    "slug": "rede-exemplo",
+    "status": "active",
+    "timezone": "America/Sao_Paulo",
+    "metadata": {}
+  }
+}
+```
+
+Resposta exemplo:
+
+```json
+{
+  "integration_event_id": "uuid",
+  "event_id": "evt_123",
+  "status": "processed",
+  "tenant_id": "uuid-local",
+  "idempotent": false
+}
+```
+
+Erros esperados:
+
+- `401` token ausente;
+- `403` token invalido;
+- `422` payload invalido.
+
+Idempotencia:
+
+- Eventos sao deduplicados por `source=orchestra-api` e `event_id`.
+- Reenvio do mesmo `event_id` retorna `idempotent=true` e nao reaplica a alteracao.
+
+Contrato detalhado: `docs/contracts/orchestra-events.md`.
