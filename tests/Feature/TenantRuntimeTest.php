@@ -162,6 +162,8 @@ class TenantRuntimeTest extends TestCase
 
     private function tenantDatabasePath(string $filename): string
     {
+        DB::purge('communication_tenant');
+
         $directory = storage_path('framework/testing');
 
         if (! is_dir($directory)) {
@@ -170,9 +172,11 @@ class TenantRuntimeTest extends TestCase
 
         $path = $directory.DIRECTORY_SEPARATOR.$filename;
 
-        if (! file_exists($path)) {
-            touch($path);
+        if (file_exists($path)) {
+            @unlink($path);
         }
+
+        touch($path);
 
         return $path;
     }
