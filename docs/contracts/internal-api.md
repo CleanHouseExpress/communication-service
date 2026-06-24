@@ -239,6 +239,12 @@ Erros esperados:
 
 Observacao: com `COMMUNICATION_TENANT_DB_PROVISIONING_ENABLED=false`, nenhum banco fisico e criado. A connection fica registrada como `skipped`.
 
+Migrations de tenant ainda sao operacionais via CLI, nao endpoint HTTP:
+
+```bash
+php artisan communication:tenant:migrate {orchestra_tenant_id}
+```
+
 ## POST /api/internal/orchestra/events/tenants
 
 Finalidade: receber eventos internos da `orchestra-api` para sincronizacao idempotente da replica minima de tenants.

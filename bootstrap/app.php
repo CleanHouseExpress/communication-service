@@ -22,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
             RateLimiter::for('agent-callbacks', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
         },
     )
+    ->withCommands([
+        __DIR__.'/../app/Console/Commands',
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(append: [
             ApiSecurityHeaders::class,
