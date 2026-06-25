@@ -2,11 +2,16 @@
 
 namespace App\Actions\Conversations;
 
-use App\Enums\ConversationHandoffStatus;
+use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\Enums\ConversationEventType;
+use App\Enums\ConversationHandoffStatus;
 use App\Enums\ConversationServiceMode;
 use App\Enums\ConversationStatus;
+use App\Events\Realtime\ConversationReturnedToAi;
+use App\Events\Realtime\ConversationUpdated;
 use App\Models\CommunicationConversation;
+use App\Services\Realtime\CommunicationRealtimePublisher;
+use App\Support\Tenancy\CurrentTenantConnection;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class ReturnConversationToAiAction
@@ -14,9 +19,10 @@ class ReturnConversationToAiAction
     use ResolvesTenantConversation;
 
     public function __construct(
-        private readonly \App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
-        private readonly \App\Support\Tenancy\CurrentTenantConnection $currentTenantConnection,
+        private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RecordConversationEventAction $recordConversationEvent,
+        private readonly CommunicationRealtimePublisher $realtimePublisher,
     ) {}
 
     public function handle(string $conversationId, ?string $tenantId, ?string $reason = null): CommunicationConversation
@@ -56,7 +62,11 @@ class ReturnConversationToAiAction
                 occurredAt: now(),
             );
 
-            return $conversation->refresh();
+            $conversation = $conversation->refresh();
+            $this->realtimePublisher->conversation(ConversationReturnedToAi::class, $conversation);
+            $this->realtimePublisher->conversation(ConversationUpdated::class, $conversation);
+
+            return $conversation;
         });
     }
 }

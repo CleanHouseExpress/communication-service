@@ -6,8 +6,11 @@ use App\Actions\Conversations\RecordConversationEventAction;
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\Enums\ConversationEventType;
 use App\Enums\MessageStatus;
+use App\Events\Realtime\ConversationUpdated;
+use App\Events\Realtime\MessageSent;
 use App\Models\CommunicationOutboundMessage;
 use App\Services\Providers\ZapiClient;
+use App\Services\Realtime\CommunicationRealtimePublisher;
 use App\Support\Tenancy\CurrentTenantConnection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +23,7 @@ class SendPendingOutboundMessageAction
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RecordConversationEventAction $recordConversationEvent,
+        private readonly CommunicationRealtimePublisher $realtimePublisher,
     ) {}
 
     public function handle(string $outboundMessageId, ?string $tenantId): ?CommunicationOutboundMessage
@@ -105,6 +109,15 @@ class SendPendingOutboundMessageAction
                             ],
                             occurredAt: $outboundMessage->sent_at,
                         );
+
+                        $this->realtimePublisher->message(MessageSent::class, $communicationMessage->refresh());
+
+                        if ($communicationMessage->conversation !== null) {
+                            $this->realtimePublisher->conversation(
+                                ConversationUpdated::class,
+                                $communicationMessage->conversation,
+                            );
+                        }
                     }
                 } else {
                     $outboundMessage->forceFill([

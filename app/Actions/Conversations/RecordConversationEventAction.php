@@ -3,12 +3,18 @@
 namespace App\Actions\Conversations;
 
 use App\Enums\ConversationEventType;
+use App\Events\Realtime\TimelineUpdated;
 use App\Models\CommunicationConversationEvent;
+use App\Services\Realtime\CommunicationRealtimePublisher;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class RecordConversationEventAction
 {
+    public function __construct(
+        private readonly CommunicationRealtimePublisher $realtimePublisher,
+    ) {}
+
     public function handle(
         ConversationEventType $eventType,
         ?string $tenantId,
@@ -23,7 +29,7 @@ class RecordConversationEventAction
         mixed $occurredAt = null,
     ): ?CommunicationConversationEvent {
         try {
-            return CommunicationConversationEvent::create([
+            $conversationEvent = CommunicationConversationEvent::create([
                 'tenant_id' => $tenantId,
                 'conversation_id' => $conversationId,
                 'message_id' => $messageId,
@@ -37,6 +43,10 @@ class RecordConversationEventAction
                 'occurred_at' => $occurredAt ?? now(),
                 'created_at' => now(),
             ]);
+
+            $this->realtimePublisher->timeline(TimelineUpdated::class, $conversationEvent);
+
+            return $conversationEvent;
         } catch (Throwable $exception) {
             Log::warning('Conversation event recording failed.', [
                 'tenant_id' => $tenantId,

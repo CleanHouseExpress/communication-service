@@ -2,18 +2,24 @@
 
 namespace App\Actions\Conversations;
 
-use App\Enums\ConversationStatus;
+use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\Enums\ConversationEventType;
+use App\Enums\ConversationStatus;
+use App\Events\Realtime\ConversationClosed;
+use App\Events\Realtime\ConversationUpdated;
 use App\Models\CommunicationConversation;
+use App\Services\Realtime\CommunicationRealtimePublisher;
+use App\Support\Tenancy\CurrentTenantConnection;
 
 class CloseConversationAction
 {
     use ResolvesTenantConversation;
 
     public function __construct(
-        private readonly \App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
-        private readonly \App\Support\Tenancy\CurrentTenantConnection $currentTenantConnection,
+        private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RecordConversationEventAction $recordConversationEvent,
+        private readonly CommunicationRealtimePublisher $realtimePublisher,
     ) {}
 
     public function handle(string $conversationId, ?string $tenantId, ?string $reason = null): CommunicationConversation
@@ -42,7 +48,11 @@ class CloseConversationAction
                 occurredAt: $conversation->closed_at,
             );
 
-            return $conversation->refresh();
+            $conversation = $conversation->refresh();
+            $this->realtimePublisher->conversation(ConversationClosed::class, $conversation);
+            $this->realtimePublisher->conversation(ConversationUpdated::class, $conversation);
+
+            return $conversation;
         });
     }
 }

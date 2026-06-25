@@ -6,7 +6,10 @@ use App\Actions\Conversations\RecordConversationEventAction;
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\Enums\ConversationEventType;
 use App\Enums\MessageStatus;
+use App\Events\Realtime\ConversationUpdated;
+use App\Events\Realtime\MessageStatusUpdated;
 use App\Models\CommunicationOutboundMessage;
+use App\Services\Realtime\CommunicationRealtimePublisher;
 use App\Support\Tenancy\CurrentTenantConnection;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +21,7 @@ class ProcessProviderMessageStatusAction
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RecordConversationEventAction $recordConversationEvent,
+        private readonly CommunicationRealtimePublisher $realtimePublisher,
     ) {}
 
     public function handle(array $data): array
@@ -93,6 +97,15 @@ class ProcessProviderMessageStatusAction
                         ],
                         occurredAt: $occurredAt,
                     );
+
+                    $this->realtimePublisher->message(MessageStatusUpdated::class, $message->refresh());
+
+                    if ($message->conversation !== null) {
+                        $this->realtimePublisher->conversation(
+                            ConversationUpdated::class,
+                            $message->conversation,
+                        );
+                    }
                 }
 
                 Log::info('Provider message status processed.', [

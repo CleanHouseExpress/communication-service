@@ -4,6 +4,7 @@ namespace App\Actions\Messages;
 
 use App\Actions\Agents\DispatchMessageToAgentAction;
 use App\Actions\Conversations\RecordConversationEventAction;
+use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\DTO\Messages\InboundMessageData;
 use App\Enums\ConversationEventType;
 use App\Enums\ConversationHandoffStatus;
@@ -12,12 +13,15 @@ use App\Enums\ConversationStatus;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Enums\MessageType;
+use App\Events\Realtime\ConversationCreated;
+use App\Events\Realtime\ConversationUpdated;
+use App\Events\Realtime\MessageReceived;
+use App\Jobs\DispatchAgentForMessageJob;
 use App\Models\CommunicationChannel;
 use App\Models\CommunicationContact;
 use App\Models\CommunicationConversation;
 use App\Models\CommunicationMessage;
-use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
-use App\Jobs\DispatchAgentForMessageJob;
+use App\Services\Realtime\CommunicationRealtimePublisher;
 use App\Support\Tenancy\CurrentTenantConnection;
 use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +36,7 @@ class ProcessInboundMessageAction
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RecordConversationEventAction $recordConversationEvent,
+        private readonly CommunicationRealtimePublisher $realtimePublisher,
     ) {}
 
     public function handle(InboundMessageData $messageData): array
@@ -108,10 +113,20 @@ class ProcessInboundMessageAction
                     'channel' => $channel,
                     'contact' => $contact,
                     'conversation' => $conversation->refresh(),
+                    'conversation_created' => $conversationCreated,
                     'message' => $message,
                     'message_created' => $created,
                 ];
             });
+
+            if ($result['conversation_created']) {
+                $this->realtimePublisher->conversation(ConversationCreated::class, $result['conversation']);
+            }
+
+            if ($result['message_created']) {
+                $this->realtimePublisher->message(MessageReceived::class, $result['message']);
+                $this->realtimePublisher->conversation(ConversationUpdated::class, $result['conversation']);
+            }
 
             if ($this->shouldDispatchToAgent($result)) {
                 if ((bool) config('communication.queues.agent.enabled', false)) {

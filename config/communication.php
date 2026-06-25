@@ -72,4 +72,9 @@ return [
             'name' => env('COMMUNICATION_QUEUE_OUTBOUND_NAME', 'communication-outbound'),
         ],
     ],
+
+    'realtime' => [
+        'enabled' => env('COMMUNICATION_REALTIME_ENABLED', false),
+        'queue' => env('COMMUNICATION_REALTIME_QUEUE', 'communication-realtime'),
+    ],
 ];
