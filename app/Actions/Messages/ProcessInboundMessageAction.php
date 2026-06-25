@@ -17,6 +17,7 @@ use App\Models\CommunicationContact;
 use App\Models\CommunicationConversation;
 use App\Models\CommunicationMessage;
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
+use App\Jobs\DispatchAgentForMessageJob;
 use App\Support\Tenancy\CurrentTenantConnection;
 use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\DB;
@@ -113,19 +114,26 @@ class ProcessInboundMessageAction
             });
 
             if ($this->shouldDispatchToAgent($result)) {
-                try {
-                    $result['agent_run'] = $this->dispatchMessageToAgent->handle($result['message']);
-                } catch (Throwable $exception) {
-                    Log::warning('Inbound agent dispatch failed without interrupting message processing.', [
-                        'tenant_id' => $result['message']->tenant_id ?? null,
-                        'provider' => $result['message']->provider ?? null,
-                        'message_id' => $result['message']->id ?? null,
-                        'conversation_id' => $result['message']->conversation_id ?? null,
-                        'status' => 'agent_dispatch_failed',
-                        'error' => $exception->getMessage(),
-                    ]);
+                if ((bool) config('communication.queues.agent.enabled', false)) {
+                    DispatchAgentForMessageJob::dispatch(
+                        (string) $result['message']->id,
+                        $result['message']->tenant_id,
+                    )->onQueue((string) config('communication.queues.agent.name', 'communication-agent'));
+                } else {
+                    try {
+                        $result['agent_run'] = $this->dispatchMessageToAgent->handle($result['message']);
+                    } catch (Throwable $exception) {
+                        Log::warning('Inbound agent dispatch failed without interrupting message processing.', [
+                            'tenant_id' => $result['message']->tenant_id ?? null,
+                            'provider' => $result['message']->provider ?? null,
+                            'message_id' => $result['message']->id ?? null,
+                            'conversation_id' => $result['message']->conversation_id ?? null,
+                            'status' => 'agent_dispatch_failed',
+                            'error' => $exception->getMessage(),
+                        ]);
 
-                    report($exception);
+                        report($exception);
+                    }
                 }
             }
 

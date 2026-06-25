@@ -58,4 +58,15 @@ return [
         'n8n_timeout' => env('COMMUNICATION_N8N_TIMEOUT', 15),
         'callback_token' => env('COMMUNICATION_AGENT_CALLBACK_TOKEN'),
     ],
+
+    'queues' => [
+        'agent' => [
+            'enabled' => env('COMMUNICATION_QUEUE_AGENT_ENABLED', false),
+            'name' => env('COMMUNICATION_QUEUE_AGENT_NAME', 'communication-agent'),
+        ],
+        'outbound' => [
+            'enabled' => env('COMMUNICATION_QUEUE_OUTBOUND_ENABLED', false),
+            'name' => env('COMMUNICATION_QUEUE_OUTBOUND_NAME', 'communication-outbound'),
+        ],
+    ],
 ];
