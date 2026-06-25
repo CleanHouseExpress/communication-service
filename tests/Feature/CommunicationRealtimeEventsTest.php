@@ -51,6 +51,28 @@ class CommunicationRealtimeEventsTest extends TestCase
         }
     }
 
+    public function test_realtime_disabled_does_not_require_reverb_credentials(): void
+    {
+        config([
+            'communication.realtime.enabled' => false,
+            'communication.agent.enabled' => false,
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => null,
+            'broadcasting.connections.reverb.secret' => null,
+            'broadcasting.connections.reverb.app_id' => null,
+        ]);
+        Event::fake($this->eventClasses());
+
+        $this->postJson('/api/providers/zapi/webhook', [
+            ...$this->inboundPayload(),
+            'messageId' => 'realtime-disabled-no-reverb-config',
+        ])->assertOk();
+
+        foreach ($this->eventClasses() as $eventClass) {
+            Event::assertNotDispatched($eventClass);
+        }
+    }
+
     public function test_inbound_publishes_created_received_updated_and_timeline_events(): void
     {
         config([

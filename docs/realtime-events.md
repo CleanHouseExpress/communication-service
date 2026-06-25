@@ -2,91 +2,118 @@
 
 ## Objetivo
 
-O communication-service publica eventos resumidos para atualização futura da
-Inbox. Esta fase entrega apenas eventos Laravel broadcastáveis; não instala nem
-configura Echo, Pusher, Ably ou frontend WebSocket.
+O communication-service publica eventos resumidos para atualizacao futura da
+Inbox. Ele nao autentica usuarios e nao decide permissoes de tenant ou conversa.
 
-## Configuração
+O realtime permanece desligado por padrao:
 
 ```env
 COMMUNICATION_REALTIME_ENABLED=false
 COMMUNICATION_REALTIME_QUEUE=communication-realtime
 ```
 
-Com a flag desligada, nenhum evento realtime é despachado. Quando ligada, os
-eventos usam a fila configurada e o driver de broadcast definido pelo ambiente.
-
-O projeto inclui somente os drivers `log` e `null`. O `.env.example` usa
-`BROADCAST_CONNECTION=log` para validação local. Um driver WebSocket deve ser
-adicionado explicitamente em uma fase futura.
+Quando a flag esta desligada, nenhum evento de broadcast e despachado e nenhuma
+configuracao valida de Reverb e exigida.
 
 ## Canais
 
-Cada evento é publicado simultaneamente em dois canais privados:
+Cada evento e publicado em dois canais privados:
 
 ```text
 tenant.{tenantId}.communication
 conversation.{conversationId}
 ```
 
-O canal do tenant permite atualizar listas, contadores e ordenação da Inbox. O
-canal da conversa permite atualizar a conversa aberta com menor volume.
+- O canal tenant atualiza listagens, contadores e ordenacao da Inbox.
+- O canal conversation atualiza a conversa atualmente aberta.
 
-## Autorização
-
-Os canais são `PrivateChannel`. A autorização de usuário, RBAC/TBAC e vínculo com
-tenant continuam sendo responsabilidade da orchestra-api.
-
-Esta sprint não expõe endpoint de autenticação de broadcasting. Uma integração
-futura deve autenticar o usuário na orchestra-api e autorizar:
-
-- canal tenant somente para usuários com acesso ao tenant;
-- canal conversation somente quando a conversa pertence ao tenant autorizado.
-
-O service token interno não deve ser entregue ao navegador.
+No Laravel/Echo, o prefixo tecnico `private-` e tratado pelo broadcaster. O
+frontend assina os nomes acima usando `Echo.private(...)`.
 
 ## Eventos
 
-- `conversation.created`
-- `conversation.updated`
-- `conversation.assigned`
-- `conversation.returned_to_ai`
-- `conversation.closed`
-- `conversation.reopened`
-- `conversation.handoff_requested`
-- `message.received`
-- `message.sent`
-- `message.status_updated`
-- `timeline.updated`
+| Classe Laravel | Nome transmitido |
+| --- | --- |
+| `ConversationCreated` | `conversation.created` |
+| `ConversationUpdated` | `conversation.updated` |
+| `ConversationAssigned` | `conversation.assigned` |
+| `ConversationReturnedToAi` | `conversation.returned_to_ai` |
+| `ConversationClosed` | `conversation.closed` |
+| `ConversationReopened` | `conversation.reopened` |
+| `ConversationHandoffRequested` | `conversation.handoff_requested` |
+| `MessageReceived` | `message.received` |
+| `MessageSent` | `message.sent` |
+| `MessageStatusUpdated` | `message.status_updated` |
+| `TimelineUpdated` | `timeline.updated` |
 
-As classes Laravel correspondentes implementam `ShouldBroadcast`, `ShouldQueue` e
-disparo após commit.
+Todas as classes implementam `ShouldBroadcast`, `ShouldQueue` e
+`ShouldDispatchAfterCommit`. A fila e definida por
+`COMMUNICATION_REALTIME_QUEUE`.
 
-## Payload
-
-Envelope comum:
+## Envelope Comum
 
 ```json
 {
   "tenant_id": "tenant-1",
-  "conversation_id": "uuid",
+  "conversation_id": "conversation-uuid",
   "event": "message.status_updated",
   "timestamp": "2026-06-25T22:00:00-03:00",
-  "resource": {
-    "id": "message-uuid",
-    "direction": "outbound",
-    "message_type": "text",
-    "status": "delivered",
-    "delivered_at": "2026-06-25T22:00:00-03:00"
-  }
+  "resource": {}
 }
 ```
 
-Recursos de conversa incluem somente estado operacional, assignment e referências.
-Recursos de mensagem incluem conteúdo e lifecycle necessários à Inbox. Timeline
-inclui metadata sanitizada.
+### Recurso de conversa
 
-Nunca são publicados:
+```json
+{
+  "id": "conversation-uuid",
+  "status": "open",
+  "service_mode": "human",
+  "handoff_status": "assigned",
+  "channel_id": "channel-uuid",
+  "contact_id": "contact-uuid",
+  "assigned_external_user_id": "user-123",
+  "assigned_external_user_name": "Maria",
+  "last_message_at": "2026-06-25T22:00:00-03:00",
+  "updated_at": "2026-06-25T22:00:00-03:00"
+}
+```
+
+### Recurso de mensagem
+
+```json
+{
+  "id": "message-uuid",
+  "direction": "outbound",
+  "message_type": "text",
+  "text": "Ola",
+  "status": "delivered",
+  "provider": "zapi",
+  "occurred_at": "2026-06-25T21:59:00-03:00",
+  "sent_at": "2026-06-25T22:00:00-03:00",
+  "delivered_at": "2026-06-25T22:00:05-03:00",
+  "read_at": null,
+  "failed_at": null
+}
+```
+
+### Recurso de timeline
+
+```json
+{
+  "id": "event-uuid",
+  "event_type": "conversation_assigned",
+  "actor_type": "human",
+  "actor_name": "Maria",
+  "description": "Conversation assigned to human.",
+  "metadata": {},
+  "occurred_at": "2026-06-25T22:00:00-03:00"
+}
+```
+
+## Seguranca do Payload
+
+Nunca sao publicados:
 
 - payload bruto;
 - headers;
@@ -95,34 +122,47 @@ Nunca são publicados:
 - request/response completos do agente;
 - prompt de IA.
 
-## Integrações Atuais
+O publisher remove essas chaves recursivamente antes do dispatch.
 
-Publicação automática ocorre após:
+## Autorizacao
 
-- criação e atualização por inbound;
-- mensagem inbound recebida;
-- envio outbound confirmado;
+Os canais usam `PrivateChannel`, mas o communication-service nao implementa
+autorizacao de usuario.
+
+A orchestra-api deve:
+
+1. autenticar o usuario;
+2. extrair o tenant ativo do contexto autenticado;
+3. para `tenant.{tenantId}.communication`, confirmar que o usuario possui acesso
+   ao mesmo tenant;
+4. para `conversation.{conversationId}`, consultar ou manter uma referencia que
+   confirme que a conversa pertence ao tenant autorizado;
+5. aplicar RBAC/TBAC antes de assinar a resposta de autenticacao do broadcaster.
+
+O `tenantId` ou `conversationId` enviados pelo navegador nunca devem ser aceitos
+como prova de acesso. O service token interno tambem nunca deve ser exposto ao
+frontend.
+
+## Publicacao Atual
+
+Eventos sao publicados depois de:
+
+- inbound e criacao de conversa;
+- envio outbound;
 - assign;
 - return-to-ai;
 - close e reopen;
-- solicitação de handoff;
-- alteração de delivery status;
-- gravação de timeline.
+- solicitacao de handoff;
+- delivery receipt;
+- gravacao de timeline.
 
-Falha de publicação não interrompe o fluxo operacional principal.
+Falha de publicacao nao interrompe o fluxo operacional.
 
-## Futuras Integrações
+## Limitacoes
 
-1. Definir driver de broadcast da infraestrutura.
-2. Criar autenticação de canais na orchestra-api.
-3. Consumir os eventos com Echo ou cliente equivalente.
-4. Implementar reconexão e ressincronização via APIs internas.
-5. Adicionar métricas de fila e latência realtime.
-
-## Limitações
-
-- Sem frontend ou cliente WebSocket.
-- Sem presença, typing ou heartbeat de usuário.
-- Sem Pusher, Ably ou servidor WebSocket selecionado.
-- Sem garantia de replay; reconexão deve consultar a API.
-- Sem ordenação global entre filas diferentes.
+- Sem endpoint local de auth de canais.
+- Sem Echo ou frontend implementado.
+- Sem presence, typing ou heartbeat.
+- Sem dashboard ou metricas realtime.
+- Sem replay garantido; apos reconexao, o frontend deve consultar as APIs.
+- Sem ordenacao global entre eventos processados por filas diferentes.
