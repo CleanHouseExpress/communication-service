@@ -6,11 +6,13 @@ use App\Actions\Conversations\AssignConversationAction;
 use App\Actions\Conversations\CloseConversationAction;
 use App\Actions\Conversations\ReopenConversationAction;
 use App\Actions\Conversations\RequestConversationHandoffAction;
+use App\Actions\Conversations\ReturnConversationToAiAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\InternalConversationAssignRequest;
 use App\Http\Requests\InternalConversationCloseRequest;
 use App\Http\Requests\InternalConversationReopenRequest;
 use App\Http\Requests\InternalConversationRequestHandoffRequest;
+use App\Http\Requests\InternalConversationReturnToAiRequest;
 use App\Http\Resources\ConversationResource;
 
 class ConversationHandoffController extends Controller
@@ -58,5 +60,15 @@ class ConversationHandoffController extends Controller
         $data = $request->validated();
 
         return ConversationResource::make($action->handle($conversationId, $data['tenant_id']));
+    }
+
+    public function returnToAi(
+        string $conversationId,
+        InternalConversationReturnToAiRequest $request,
+        ReturnConversationToAiAction $action,
+    ): ConversationResource {
+        $data = $request->validated();
+
+        return ConversationResource::make($action->handle($conversationId, $data['tenant_id'], $data['reason'] ?? null));
     }
 }

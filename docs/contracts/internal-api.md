@@ -413,6 +413,38 @@ Payload:
 
 Efeito: `status=open` e `closed_at=null`. `service_mode` nao e alterado.
 
+## POST /api/internal/inbox/conversations/{conversation_id}/return-to-ai
+
+Finalidade: devolver uma conversa assumida por humano para atendimento IA.
+
+Payload:
+
+```json
+{
+  "tenant_id": "tenant-1",
+  "reason": "Atendimento humano finalizado, devolver para IA"
+}
+```
+
+Efeitos:
+
+- `service_mode=ai`;
+- `handoff_status=none`;
+- `assigned_external_user_id=null`;
+- `assigned_external_user_name=null`;
+- `assigned_at=null`;
+- `handoff_assigned_at=null`;
+- `status=open`;
+- motivo salvo em `metadata.return_to_ai_reason`, quando enviado.
+
+Erros esperados:
+
+- `401` token ausente;
+- `403` token invalido;
+- `404` conversa inexistente ou de outro tenant;
+- `409` conversa fechada;
+- `422` payload invalido.
+
 Observacao: estes endpoints nao implementam usuarios, permissoes, RBAC ou TBAC. Eles apenas registram estado operacional.
 
 ## POST /api/internal/tenants/sync

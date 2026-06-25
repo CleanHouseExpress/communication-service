@@ -65,6 +65,23 @@ When `orchestra-api` calls the assignment endpoint, the conversation becomes hum
 
 While `service_mode=human`, inbound text is not sent to the agent.
 
+## Returning To AI
+
+When human service is finished, `orchestra-api` can call the return-to-AI endpoint.
+
+The conversation must not be closed. The transition sets:
+
+- `service_mode=ai`;
+- `handoff_status=none`;
+- `assigned_external_user_id/name=null`;
+- `assigned_at=null`;
+- `handoff_assigned_at=null`;
+- `status=open`.
+
+If a reason is provided, it is stored in `metadata.return_to_ai_reason` with `metadata.returned_to_ai_at`.
+
+After this transition, new inbound text can be dispatched to the agent again.
+
 ## Compatibility
 
 Older handoff fields remain available:
@@ -80,7 +97,6 @@ New code should prefer `service_mode` and `handoff_status` for routing decisions
 
 ## Limitations
 
-- No return from human service to AI yet.
 - No supervised AI response approval.
 - No realtime/presence.
 - No transfer between attendants.

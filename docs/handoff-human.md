@@ -57,8 +57,11 @@ The communication-service stores only operational state:
 - `POST /api/internal/inbox/conversations/{conversation_id}/assign`
 - `POST /api/internal/inbox/conversations/{conversation_id}/close`
 - `POST /api/internal/inbox/conversations/{conversation_id}/reopen`
+- `POST /api/internal/inbox/conversations/{conversation_id}/return-to-ai`
 
 All endpoints require service token and `tenant_id`.
+
+`return-to-ai` clears the current assignment, sets `service_mode=ai`, sets `handoff_status=none` and allows future inbound text to be processed by the agent again. It rejects closed conversations.
 
 ## Limitations
 
