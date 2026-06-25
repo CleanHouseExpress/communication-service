@@ -609,3 +609,42 @@ Idempotencia:
 - Reenvio do mesmo `event_id` retorna `idempotent=true` e nao reaplica a alteracao.
 
 Contrato detalhado: `docs/contracts/orchestra-events.md`.
+
+## GET /api/internal/inbox/conversations/{conversation_id}/messages/status
+
+Finalidade: consultar o lifecycle de entrega das mensagens de uma conversa.
+
+Headers:
+
+```http
+X-Service-Token: <service-token>
+Accept: application/json
+```
+
+Query:
+
+```text
+tenant_id=tenant-1
+```
+
+Resposta:
+
+```json
+{
+  "data": [
+    {
+      "message_id": "uuid",
+      "status": "delivered",
+      "sent_at": "2026-06-25T21:20:00.000000Z",
+      "delivered_at": "2026-06-25T21:30:00.000000Z",
+      "read_at": null
+    }
+  ]
+}
+```
+
+Erros esperados:
+
+- `401`: service token ausente ou invalido;
+- `422`: `tenant_id` ausente ou invalido;
+- `404`: conversa inexistente para o tenant informado.

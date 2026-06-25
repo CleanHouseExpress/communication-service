@@ -77,7 +77,9 @@ class SendPendingOutboundMessageAction
 
                     $communicationMessage?->forceFill([
                         'external_message_id' => $result->providerMessageId,
+                        'provider_message_id' => $result->providerMessageId,
                         'status' => MessageStatus::Sent->value,
+                        'sent_at' => $outboundMessage->sent_at,
                     ])->save();
 
                     Log::info('Outbound message sent.', [
@@ -113,6 +115,11 @@ class SendPendingOutboundMessageAction
 
                     $communicationMessage?->forceFill([
                         'status' => MessageStatus::Failed->value,
+                        'failed_at' => now(),
+                    ])->save();
+
+                    $outboundMessage->forceFill([
+                        'failed_at' => $communicationMessage?->failed_at ?? now(),
                     ])->save();
 
                     Log::warning('Outbound message failed.', [

@@ -29,6 +29,9 @@ class CommunicationOutboundMessage extends Model
         'provider_response',
         'failed_reason',
         'sent_at',
+        'delivered_at',
+        'read_at',
+        'failed_at',
     ];
 
     protected function casts(): array
@@ -37,6 +40,9 @@ class CommunicationOutboundMessage extends Model
             'payload' => 'array',
             'provider_response' => 'array',
             'sent_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'read_at' => 'datetime',
+            'failed_at' => 'datetime',
         ];
     }
 

@@ -88,8 +88,30 @@ Se eventos diferentes carregarem o mesmo `external_message_id`, o raw event pode
 
 ## Limitacoes Atuais
 
-- Sem callback de delivery/read.
 - Sem media storage definitivo.
-- Sem retry ou fila para processamento.
 - Sem assinatura validada contra especificacao oficial final da Z-API.
 - Sem deduplicacao multi-provider alem dos campos locais atuais.
+
+## POST /api/providers/zapi/message-status
+
+Finalidade: receber recibos de envio, entrega, leitura ou falha de mensagens
+outbound.
+
+Autenticacao: usa a mesma assinatura configurada em
+`COMMUNICATION_ZAPI_WEBHOOK_SECRET` e
+`COMMUNICATION_ZAPI_WEBHOOK_SIGNATURE_HEADER`.
+
+```json
+{
+  "tenant_id": "tenant-1",
+  "provider_message_id": "zapi-message-123",
+  "external_message_id": "zapi-message-123",
+  "status": "delivered",
+  "timestamp": "2026-06-25T18:30:00-03:00"
+}
+```
+
+Status aceitos: `sent`, `delivered`, `read` e `failed`.
+
+Pelo menos um identificador deve ser enviado. Callback repetido ou atrasado nao
+rebaixa o status atual. Identificador desconhecido retorna `processed=false`.

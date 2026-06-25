@@ -19,12 +19,17 @@ class CommunicationMessage extends Model
         'channel_id',
         'provider',
         'external_message_id',
+        'provider_message_id',
         'direction',
         'message_type',
         'text',
         'payload',
         'status',
         'occurred_at',
+        'sent_at',
+        'delivered_at',
+        'read_at',
+        'failed_at',
     ];
 
     protected function casts(): array
@@ -32,6 +37,10 @@ class CommunicationMessage extends Model
         return [
             'payload' => 'array',
             'occurred_at' => 'datetime',
+            'sent_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'read_at' => 'datetime',
+            'failed_at' => 'datetime',
         ];
     }
 

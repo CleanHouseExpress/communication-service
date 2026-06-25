@@ -9,5 +9,7 @@ enum MessageStatus: string
     case Received = 'received';
     case Processing = 'processing';
     case Sent = 'sent';
+    case Delivered = 'delivered';
+    case Read = 'read';
     case Failed = 'failed';
 }

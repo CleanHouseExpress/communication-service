@@ -4,15 +4,16 @@ use App\Http\Controllers\Internal\AgentRunController;
 use App\Http\Controllers\Internal\ConversationHandoffController;
 use App\Http\Controllers\Internal\ConversationTimelineController;
 use App\Http\Controllers\Internal\HealthController;
+use App\Http\Controllers\Internal\InboundMessageController;
 use App\Http\Controllers\Internal\InboxConversationController;
 use App\Http\Controllers\Internal\InboxMessageController;
 use App\Http\Controllers\Internal\InboxSummaryController;
 use App\Http\Controllers\Internal\InternalConversationMessageController;
-use App\Http\Controllers\Internal\InboundMessageController;
 use App\Http\Controllers\Internal\OrchestraTenantEventController;
 use App\Http\Controllers\Internal\OutboundMessageController;
 use App\Http\Controllers\Internal\TenantDatabaseProvisionController;
 use App\Http\Controllers\Internal\TenantSyncController;
+use App\Http\Controllers\Providers\ZapiMessageStatusController;
 use App\Http\Controllers\Providers\ZapiWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,6 +44,9 @@ Route::middleware('throttle:internal-api')->group(function (): void {
         ->middleware('service.token');
 
     Route::get('/internal/inbox/conversations/{conversation_id}/messages', [InboxMessageController::class, 'index'])
+        ->middleware('service.token');
+
+    Route::get('/internal/inbox/conversations/{conversation_id}/messages/status', [InboxMessageController::class, 'status'])
         ->middleware('service.token');
 
     Route::get('/internal/inbox/conversations/{conversation_id}/timeline', ConversationTimelineController::class)
@@ -83,4 +87,7 @@ Route::middleware('throttle:internal-api')->group(function (): void {
 });
 
 Route::post('/providers/zapi/webhook', ZapiWebhookController::class)
+    ->middleware(['throttle:provider-webhooks', 'provider.webhook.signature']);
+
+Route::post('/providers/zapi/message-status', ZapiMessageStatusController::class)
     ->middleware(['throttle:provider-webhooks', 'provider.webhook.signature']);
