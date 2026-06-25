@@ -293,6 +293,50 @@ Filtros opcionais:
 
 Observacao: estes endpoints sao internos e nao implementam auth de usuario, RBAC ou TBAC. Essas permissoes ficam na `orchestra-api`.
 
+## POST /api/internal/inbox/conversations/{conversation_id}/messages
+
+Finalidade: enviar mensagem humana outbound em uma conversa existente, usando contato e canal ja registrados.
+
+Payload:
+
+```json
+{
+  "tenant_id": "tenant-1",
+  "text": "Mensagem do atendente"
+}
+```
+
+Resposta exemplo:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "tenant_id": "tenant-1",
+    "conversation_id": "uuid",
+    "contact_id": "uuid",
+    "channel_id": "uuid",
+    "provider": "zapi",
+    "direction": "outbound",
+    "message_type": "text",
+    "text": "Mensagem do atendente",
+    "status": "sent",
+    "occurred_at": "2026-06-25T12:00:00-03:00",
+    "created_at": "2026-06-25T12:00:00-03:00"
+  }
+}
+```
+
+Erros esperados:
+
+- `401` token ausente;
+- `403` token invalido;
+- `404` conversa inexistente ou de outro tenant;
+- `409` conversa fechada;
+- `422` payload invalido.
+
+Observacao: o endpoint nao aceita `external_contact_id`; o destino vem da conversa/contato existente. A resposta nao inclui payload bruto, provider_response, tokens ou headers.
+
 ## POST /api/internal/inbox/conversations/{conversation_id}/request-handoff
 
 Finalidade: marcar conversa como aguardando atendimento humano.

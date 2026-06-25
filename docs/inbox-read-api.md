@@ -87,6 +87,9 @@ Query:
 - `page` optional;
 - `per_page` optional, max 100.
 
+Human outbound messages are created through `POST /api/internal/inbox/conversations/{conversation_id}/messages`.
+See `docs/inbox-write-api.md`.
+
 ## Response Safety
 
 Conversation responses include IDs, status, `assignment_status`, `has_handoff_requested`, contact summary and latest message summary.
