@@ -5,6 +5,7 @@ use App\Http\Controllers\Internal\ConversationHandoffController;
 use App\Http\Controllers\Internal\HealthController;
 use App\Http\Controllers\Internal\InboxConversationController;
 use App\Http\Controllers\Internal\InboxMessageController;
+use App\Http\Controllers\Internal\InboxSummaryController;
 use App\Http\Controllers\Internal\InboundMessageController;
 use App\Http\Controllers\Internal\OrchestraTenantEventController;
 use App\Http\Controllers\Internal\OutboundMessageController;
@@ -34,6 +35,9 @@ Route::middleware('throttle:internal-api')->group(function (): void {
         ->middleware('service.token');
 
     Route::get('/internal/inbox/conversations', [InboxConversationController::class, 'index'])
+        ->middleware('service.token');
+
+    Route::get('/internal/inbox/summary', InboxSummaryController::class)
         ->middleware('service.token');
 
     Route::get('/internal/inbox/conversations/{conversation_id}/messages', [InboxMessageController::class, 'index'])

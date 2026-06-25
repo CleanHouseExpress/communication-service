@@ -58,6 +58,17 @@ GET /api/internal/inbox/conversations?tenant_id=tenant-1&assigned_external_user_
 GET /api/internal/inbox/conversations?tenant_id=tenant-1&last_message_from=inbound&sort=updated_at&direction=desc
 ```
 
+### GET /api/internal/inbox/summary
+
+Query:
+
+- `tenant_id` required string;
+- `assigned_external_user_id` optional string.
+
+Returns aggregate inbox counters for panel tabs and badges without returning records or raw payloads.
+
+See `docs/inbox-summary-api.md` for the detailed contract.
+
 ### GET /api/internal/inbox/conversations/{conversation_id}
 
 Query:

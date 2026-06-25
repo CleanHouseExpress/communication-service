@@ -228,6 +228,46 @@ Resposta exemplo:
 }
 ```
 
+## GET /api/internal/inbox/summary
+
+Finalidade: retornar contadores agregados simples do inbox para abas/badges do painel sem pesar a listagem paginada.
+
+Query obrigatoria:
+
+- `tenant_id`
+
+Filtros opcionais:
+
+- `assigned_external_user_id`: quando enviado, calcula `total_my_assigned`
+
+Resposta exemplo:
+
+```json
+{
+  "data": {
+    "total_open": 10,
+    "total_pending": 3,
+    "total_closed": 20,
+    "total_unassigned": 5,
+    "total_assigned": 8,
+    "total_handoff_requested": 2,
+    "total_my_assigned": 4,
+    "total_inbound_last_message": 6,
+    "total_outbound_last_message": 7
+  }
+}
+```
+
+Quando `assigned_external_user_id` nao for enviado, `total_my_assigned` retorna `null`.
+
+Erros esperados:
+
+- `401` token ausente;
+- `403` token invalido;
+- `422` query invalida.
+
+Observacao: o endpoint retorna somente contadores e nao inclui payload bruto, mensagens, contatos, tokens ou dados sensiveis.
+
 ## GET /api/internal/inbox/conversations/{conversation_id}
 
 Finalidade: retornar uma conversa especifica do tenant.
