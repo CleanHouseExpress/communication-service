@@ -3,6 +3,8 @@
 namespace App\Actions\Messages;
 
 use App\DTO\Messages\OutboundMessageData;
+use App\Actions\Conversations\RecordConversationEventAction;
+use App\Enums\ConversationEventType;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Enums\ProviderType;
@@ -23,6 +25,7 @@ class ProcessOutboundMessageAction
         private readonly TenantResolver $tenantResolver,
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
+        private readonly RecordConversationEventAction $recordConversationEvent,
     ) {}
 
     public function handle(OutboundMessageData $messageData): array
@@ -112,6 +115,21 @@ class ProcessOutboundMessageAction
                     'conversation_id' => $outboundMessage->conversation_id,
                     'status' => MessageStatus::Sent->value,
                 ]);
+
+                $this->recordConversationEvent->handle(
+                    eventType: ConversationEventType::MessageSent,
+                    tenantId: $communicationMessage->tenant_id,
+                    conversationId: (string) $communicationMessage->conversation_id,
+                    actorType: (string) ($messageData->payload['source'] ?? 'system'),
+                    messageId: (string) $communicationMessage->id,
+                    description: 'Outbound message sent.',
+                    metadata: [
+                        'provider' => $outboundMessage->provider,
+                        'message_type' => $outboundMessage->message_type,
+                        'source' => $messageData->payload['source'] ?? null,
+                    ],
+                    occurredAt: $outboundMessage->sent_at,
+                );
             } else {
                 $outboundMessage->forceFill([
                     'status' => MessageStatus::Failed->value,

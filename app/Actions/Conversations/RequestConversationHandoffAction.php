@@ -3,12 +3,19 @@
 namespace App\Actions\Conversations;
 
 use App\Enums\ConversationStatus;
+use App\Enums\ConversationEventType;
 use App\Enums\ConversationHandoffStatus;
 use App\Models\CommunicationConversation;
 
 class RequestConversationHandoffAction
 {
     use ResolvesTenantConversation;
+
+    public function __construct(
+        private readonly \App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly \App\Support\Tenancy\CurrentTenantConnection $currentTenantConnection,
+        private readonly RecordConversationEventAction $recordConversationEvent,
+    ) {}
 
     public function handle(
         string $conversationId,
@@ -28,6 +35,18 @@ class RequestConversationHandoffAction
                 'handoff_requested_reason' => $reason,
                 'status' => ConversationStatus::Pending->value,
             ])->save();
+
+            $this->recordConversationEvent->handle(
+                eventType: ConversationEventType::HandoffRequested,
+                tenantId: $conversation->tenant_id,
+                conversationId: (string) $conversation->id,
+                actorType: $requestedBy,
+                description: $reason ?: 'Handoff requested.',
+                metadata: [
+                    'requested_by' => $requestedBy,
+                ],
+                occurredAt: $conversation->handoff_requested_at,
+            );
 
             return $conversation->refresh();
         });

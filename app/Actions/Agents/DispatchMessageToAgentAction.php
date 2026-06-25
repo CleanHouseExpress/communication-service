@@ -3,11 +3,13 @@
 namespace App\Actions\Agents;
 
 use App\Actions\Conversations\RequestConversationHandoffAction;
+use App\Actions\Conversations\RecordConversationEventAction;
 use App\Actions\Messages\ProcessOutboundMessageAction;
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\DTO\Agents\AgentRequestData;
 use App\DTO\Messages\OutboundMessageData;
 use App\Enums\AgentRunStatus;
+use App\Enums\ConversationEventType;
 use App\Enums\ConversationServiceMode;
 use App\Enums\MessageDirection;
 use App\Enums\MessageType;
@@ -29,6 +31,7 @@ class DispatchMessageToAgentAction
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RequestConversationHandoffAction $requestConversationHandoff,
+        private readonly RecordConversationEventAction $recordConversationEvent,
     ) {}
 
     public function handle(CommunicationMessage $message): CommunicationAgentRun
@@ -64,6 +67,18 @@ class DispatchMessageToAgentAction
                     'status' => AgentRunStatus::Skipped->value,
                 ]);
 
+                $this->recordConversationEvent->handle(
+                    eventType: ConversationEventType::AgentSkipped,
+                    tenantId: $agentRun->tenant_id,
+                    conversationId: (string) $agentRun->conversation_id,
+                    actorType: 'agent',
+                    messageId: $agentRun->message_id,
+                    agentRunId: (string) $agentRun->id,
+                    description: 'Agent skipped because conversation is in human service mode.',
+                    metadata: ['reason' => 'human_service_mode'],
+                    occurredAt: $agentRun->finished_at,
+                );
+
                 return $agentRun->refresh();
             }
 
@@ -89,14 +104,26 @@ class DispatchMessageToAgentAction
                 'finished_at' => now(),
             ])->save();
 
-            Log::info('Agent run skipped.', [
+                Log::info('Agent run skipped.', [
                 'tenant_id' => $agentRun->tenant_id,
                 'provider' => $agentRun->provider,
                 'message_id' => $agentRun->message_id,
                 'conversation_id' => $agentRun->conversation_id,
                 'agent_run_id' => $agentRun->id,
-                'status' => AgentRunStatus::Skipped->value,
-            ]);
+                    'status' => AgentRunStatus::Skipped->value,
+                ]);
+
+                $this->recordConversationEvent->handle(
+                    eventType: ConversationEventType::AgentSkipped,
+                    tenantId: $agentRun->tenant_id,
+                    conversationId: (string) $agentRun->conversation_id,
+                    actorType: 'agent',
+                    messageId: $agentRun->message_id,
+                    agentRunId: (string) $agentRun->id,
+                    description: 'Agent skipped.',
+                    metadata: ['reason' => 'agent_disabled'],
+                    occurredAt: $agentRun->finished_at,
+                );
 
                 return $agentRun->refresh();
             }
@@ -105,6 +132,18 @@ class DispatchMessageToAgentAction
             'status' => AgentRunStatus::Running->value,
             'started_at' => now(),
         ])->save();
+
+        $this->recordConversationEvent->handle(
+            eventType: ConversationEventType::AgentStarted,
+            tenantId: $agentRun->tenant_id,
+            conversationId: (string) $agentRun->conversation_id,
+            actorType: 'agent',
+            messageId: $agentRun->message_id,
+            agentRunId: (string) $agentRun->id,
+            description: 'Agent started.',
+            metadata: ['agent' => $agentRun->agent],
+            occurredAt: $agentRun->started_at,
+        );
 
         $responseData = $this->agentClient->dispatch($requestData);
 
@@ -125,6 +164,22 @@ class DispatchMessageToAgentAction
             'status' => $agentRun->status,
             'error' => $responseData->error,
         ]);
+
+        $this->recordConversationEvent->handle(
+            eventType: ConversationEventType::AgentFinished,
+            tenantId: $agentRun->tenant_id,
+            conversationId: (string) $agentRun->conversation_id,
+            actorType: 'agent',
+            messageId: $agentRun->message_id,
+            agentRunId: (string) $agentRun->id,
+            description: 'Agent finished.',
+            metadata: [
+                'status' => $agentRun->status,
+                'should_reply' => $responseData->shouldReply,
+                'should_handoff' => $responseData->shouldHandoff,
+            ],
+            occurredAt: $agentRun->finished_at,
+        );
 
         if ($responseData->success && $responseData->shouldReply && $responseData->responseText !== null && $responseData->responseText !== '') {
             $this->processOutboundMessage->handle(new OutboundMessageData(

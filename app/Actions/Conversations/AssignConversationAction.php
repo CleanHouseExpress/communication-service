@@ -3,6 +3,7 @@
 namespace App\Actions\Conversations;
 
 use App\Enums\ConversationStatus;
+use App\Enums\ConversationEventType;
 use App\Enums\ConversationHandoffStatus;
 use App\Enums\ConversationServiceMode;
 use App\Models\CommunicationConversation;
@@ -10,6 +11,12 @@ use App\Models\CommunicationConversation;
 class AssignConversationAction
 {
     use ResolvesTenantConversation;
+
+    public function __construct(
+        private readonly \App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly \App\Support\Tenancy\CurrentTenantConnection $currentTenantConnection,
+        private readonly RecordConversationEventAction $recordConversationEvent,
+    ) {}
 
     public function handle(
         string $conversationId,
@@ -29,6 +36,18 @@ class AssignConversationAction
                 'handoff_assigned_at' => now(),
                 'status' => ConversationStatus::Open->value,
             ])->save();
+
+            $this->recordConversationEvent->handle(
+                eventType: ConversationEventType::ConversationAssigned,
+                tenantId: $conversation->tenant_id,
+                conversationId: (string) $conversation->id,
+                actorType: 'human',
+                actorId: $externalUserId,
+                actorName: $externalUserName,
+                description: 'Conversation assigned to human.',
+                metadata: [],
+                occurredAt: $conversation->assigned_at,
+            );
 
             return $conversation->refresh();
         });

@@ -5,6 +5,7 @@ namespace App\Actions\Conversations;
 use App\Actions\Messages\ProcessOutboundMessageAction;
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\DTO\Messages\OutboundMessageData;
+use App\Enums\ConversationEventType;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageType;
 use App\Models\CommunicationConversation;
@@ -20,6 +21,7 @@ class SendHumanConversationMessageAction
         private readonly ProcessOutboundMessageAction $processOutboundMessage,
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
+        private readonly RecordConversationEventAction $recordConversationEvent,
     ) {}
 
     public function handle(string $conversationId, string $tenantId, string $text): CommunicationMessage
@@ -65,6 +67,19 @@ class SendHumanConversationMessageAction
             $conversation->forceFill([
                 'last_message_at' => $message->occurred_at ?? now(),
             ])->save();
+
+            $this->recordConversationEvent->handle(
+                eventType: ConversationEventType::HumanMessageSent,
+                tenantId: $message->tenant_id,
+                conversationId: (string) $message->conversation_id,
+                actorType: 'human',
+                messageId: (string) $message->id,
+                description: 'Human message sent.',
+                metadata: [
+                    'message_type' => $message->message_type,
+                ],
+                occurredAt: $message->occurred_at,
+            );
 
             return $message->refresh();
         } finally {

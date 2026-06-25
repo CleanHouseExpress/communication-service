@@ -3,7 +3,9 @@
 namespace App\Actions\Messages;
 
 use App\Actions\Agents\DispatchMessageToAgentAction;
+use App\Actions\Conversations\RecordConversationEventAction;
 use App\DTO\Messages\InboundMessageData;
+use App\Enums\ConversationEventType;
 use App\Enums\ConversationHandoffStatus;
 use App\Enums\ConversationServiceMode;
 use App\Enums\ConversationStatus;
@@ -28,6 +30,7 @@ class ProcessInboundMessageAction
         private readonly TenantResolver $tenantResolver,
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
+        private readonly RecordConversationEventAction $recordConversationEvent,
     ) {}
 
     public function handle(InboundMessageData $messageData): array
@@ -41,6 +44,7 @@ class ProcessInboundMessageAction
                 $channel = $this->resolveChannel($messageData);
                 $contact = $this->resolveContact($messageData);
                 $conversation = $this->resolveConversation($messageData, $channel, $contact);
+                $conversationCreated = $conversation->wasRecentlyCreated;
 
                 $message = $this->findExistingMessage($messageData);
                 $created = false;
@@ -61,6 +65,38 @@ class ProcessInboundMessageAction
                         'occurred_at' => $messageData->occurredAt,
                     ]);
                     $created = true;
+                }
+
+                if ($conversationCreated) {
+                    $this->recordConversationEvent->handle(
+                        eventType: ConversationEventType::ConversationCreated,
+                        tenantId: $conversation->tenant_id,
+                        conversationId: (string) $conversation->id,
+                        actorType: 'system',
+                        description: 'Conversation created.',
+                        metadata: [
+                            'provider' => $messageData->provider->value,
+                            'service_mode' => $conversation->service_mode,
+                        ],
+                        occurredAt: $conversation->created_at,
+                    );
+                }
+
+                if ($created) {
+                    $this->recordConversationEvent->handle(
+                        eventType: ConversationEventType::MessageReceived,
+                        tenantId: $message->tenant_id,
+                        conversationId: (string) $conversation->id,
+                        actorType: 'contact',
+                        messageId: (string) $message->id,
+                        actorName: $contact->name,
+                        description: 'Inbound message received.',
+                        metadata: [
+                            'provider' => $message->provider,
+                            'message_type' => $message->message_type,
+                        ],
+                        occurredAt: $message->occurred_at ?? $message->created_at,
+                    );
                 }
 
                 $conversation->forceFill([

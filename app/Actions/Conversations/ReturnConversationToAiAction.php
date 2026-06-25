@@ -3,6 +3,7 @@
 namespace App\Actions\Conversations;
 
 use App\Enums\ConversationHandoffStatus;
+use App\Enums\ConversationEventType;
 use App\Enums\ConversationServiceMode;
 use App\Enums\ConversationStatus;
 use App\Models\CommunicationConversation;
@@ -11,6 +12,12 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 class ReturnConversationToAiAction
 {
     use ResolvesTenantConversation;
+
+    public function __construct(
+        private readonly \App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly \App\Support\Tenancy\CurrentTenantConnection $currentTenantConnection,
+        private readonly RecordConversationEventAction $recordConversationEvent,
+    ) {}
 
     public function handle(string $conversationId, ?string $tenantId, ?string $reason = null): CommunicationConversation
     {
@@ -38,6 +45,16 @@ class ReturnConversationToAiAction
                 'status' => ConversationStatus::Open->value,
                 'metadata' => $metadata,
             ])->save();
+
+            $this->recordConversationEvent->handle(
+                eventType: ConversationEventType::ConversationReturnedToAi,
+                tenantId: $conversation->tenant_id,
+                conversationId: (string) $conversation->id,
+                actorType: 'internal',
+                description: $reason ?: 'Conversation returned to AI.',
+                metadata: $reason ? ['reason' => $reason] : [],
+                occurredAt: now(),
+            );
 
             return $conversation->refresh();
         });

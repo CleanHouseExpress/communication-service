@@ -299,6 +299,43 @@ Filtros opcionais:
 
 Observacao: estes endpoints sao internos e nao implementam auth de usuario, RBAC ou TBAC. Essas permissoes ficam na `orchestra-api`.
 
+## GET /api/internal/inbox/conversations/{conversation_id}/timeline
+
+Finalidade: listar a timeline operacional da conversa em ordem cronologica.
+
+Query obrigatoria:
+
+- `tenant_id`
+
+Resposta exemplo:
+
+```json
+{
+  "data": [
+    {
+      "event_type": "message_received",
+      "actor_type": "contact",
+      "actor_name": "Maria Cliente",
+      "description": "Inbound message received.",
+      "metadata": {
+        "provider": "zapi",
+        "message_type": "text"
+      },
+      "occurred_at": "2026-06-25T12:00:00-03:00"
+    }
+  ]
+}
+```
+
+Erros esperados:
+
+- `401` token ausente;
+- `403` token invalido;
+- `404` conversa inexistente ou de outro tenant;
+- `422` query invalida.
+
+Observacao: a timeline remove metadata sensivel como tokens, secrets, authorization, payload bruto e provider_response.
+
 ## POST /api/internal/inbox/conversations/{conversation_id}/messages
 
 Finalidade: enviar mensagem humana outbound em uma conversa existente, usando contato e canal ja registrados.

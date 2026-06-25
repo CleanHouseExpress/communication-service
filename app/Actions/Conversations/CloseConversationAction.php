@@ -3,11 +3,18 @@
 namespace App\Actions\Conversations;
 
 use App\Enums\ConversationStatus;
+use App\Enums\ConversationEventType;
 use App\Models\CommunicationConversation;
 
 class CloseConversationAction
 {
     use ResolvesTenantConversation;
+
+    public function __construct(
+        private readonly \App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
+        private readonly \App\Support\Tenancy\CurrentTenantConnection $currentTenantConnection,
+        private readonly RecordConversationEventAction $recordConversationEvent,
+    ) {}
 
     public function handle(string $conversationId, ?string $tenantId, ?string $reason = null): CommunicationConversation
     {
@@ -24,6 +31,16 @@ class CloseConversationAction
                 'closed_at' => now(),
                 'metadata' => $metadata,
             ])->save();
+
+            $this->recordConversationEvent->handle(
+                eventType: ConversationEventType::ConversationClosed,
+                tenantId: $conversation->tenant_id,
+                conversationId: (string) $conversation->id,
+                actorType: 'internal',
+                description: $reason ?: 'Conversation closed.',
+                metadata: $reason ? ['reason' => $reason] : [],
+                occurredAt: $conversation->closed_at,
+            );
 
             return $conversation->refresh();
         });
