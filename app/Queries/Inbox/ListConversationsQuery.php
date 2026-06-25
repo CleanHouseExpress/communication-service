@@ -33,6 +33,14 @@ class ListConversationsQuery
                 $query->where('status', $filters['status']);
             }
 
+            if (! empty($filters['service_mode'])) {
+                $query->where('service_mode', $filters['service_mode']);
+            }
+
+            if (! empty($filters['handoff_status'])) {
+                $query->where('handoff_status', $filters['handoff_status']);
+            }
+
             if (! empty($filters['assignment_status'])) {
                 $filters['assignment_status'] === 'assigned'
                     ? $query->whereNotNull('assigned_external_user_id')

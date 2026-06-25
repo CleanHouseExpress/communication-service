@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Enums\ConversationStatus;
+use App\Enums\ConversationHandoffStatus;
+use App\Enums\ConversationServiceMode;
 use App\Enums\MessageDirection;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,6 +21,8 @@ class InternalConversationIndexRequest extends FormRequest
         return [
             'tenant_id' => ['required', 'string', 'max:100'],
             'status' => ['nullable', Rule::enum(ConversationStatus::class)],
+            'service_mode' => ['nullable', Rule::enum(ConversationServiceMode::class)],
+            'handoff_status' => ['nullable', Rule::enum(ConversationHandoffStatus::class)],
             'assignment_status' => ['nullable', Rule::in(['unassigned', 'assigned'])],
             'assigned_external_user_id' => ['nullable', 'string', 'max:100'],
             'handoff' => ['nullable', Rule::in(['requested', 'none'])],

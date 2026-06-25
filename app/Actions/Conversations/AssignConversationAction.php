@@ -3,6 +3,8 @@
 namespace App\Actions\Conversations;
 
 use App\Enums\ConversationStatus;
+use App\Enums\ConversationHandoffStatus;
+use App\Enums\ConversationServiceMode;
 use App\Models\CommunicationConversation;
 
 class AssignConversationAction
@@ -19,9 +21,12 @@ class AssignConversationAction
             $conversation = $this->conversation($conversationId, $tenantId);
 
             $conversation->forceFill([
+                'service_mode' => ConversationServiceMode::Human->value,
+                'handoff_status' => ConversationHandoffStatus::Assigned->value,
                 'assigned_external_user_id' => $externalUserId,
                 'assigned_external_user_name' => $externalUserName,
                 'assigned_at' => now(),
+                'handoff_assigned_at' => now(),
                 'status' => ConversationStatus::Open->value,
             ])->save();
 

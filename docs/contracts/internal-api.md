@@ -184,6 +184,8 @@ Query obrigatoria:
 Filtros opcionais:
 
 - `status`
+- `service_mode`: `ai` ou `human`
+- `handoff_status`: `none`, `requested` ou `assigned`
 - `assignment_status`: `unassigned` ou `assigned`
 - `assigned_external_user_id`
 - `handoff`: `requested` ou `none`
@@ -218,9 +220,13 @@ Resposta exemplo:
       "id": "uuid",
       "tenant_id": "tenant-1",
       "status": "pending",
+      "service_mode": "ai",
+      "handoff_status": "requested",
       "assignment_status": "unassigned",
       "has_handoff_requested": true,
       "handoff_requested_at": "2026-06-24T12:00:00-03:00",
+      "handoff_requested_by": "agent",
+      "handoff_requested_reason": "Agent requested human handoff.",
       "assigned_external_user_id": null,
       "closed_at": null
     }
@@ -350,6 +356,13 @@ Payload:
 }
 ```
 
+Efeitos:
+
+- `service_mode` permanece `ai`;
+- `handoff_status=requested`;
+- `handoff_requested_by=internal`;
+- `status=pending`.
+
 ## POST /api/internal/inbox/conversations/{conversation_id}/assign
 
 Finalidade: registrar atribuicao operacional para um usuario externo da Orchestra.
@@ -364,6 +377,13 @@ Payload:
 }
 ```
 
+Efeitos:
+
+- `service_mode=human`;
+- `handoff_status=assigned`;
+- `assigned_at` e `handoff_assigned_at` preenchidos;
+- `status=open`.
+
 ## POST /api/internal/inbox/conversations/{conversation_id}/close
 
 Finalidade: fechar conversa operacionalmente.
@@ -377,6 +397,8 @@ Payload:
 }
 ```
 
+Efeito: `status=closed` e `closed_at` preenchido. `service_mode` nao e alterado.
+
 ## POST /api/internal/inbox/conversations/{conversation_id}/reopen
 
 Finalidade: reabrir conversa fechada.
@@ -388,6 +410,8 @@ Payload:
   "tenant_id": "tenant-1"
 }
 ```
+
+Efeito: `status=open` e `closed_at=null`. `service_mode` nao e alterado.
 
 Observacao: estes endpoints nao implementam usuarios, permissoes, RBAC ou TBAC. Eles apenas registram estado operacional.
 

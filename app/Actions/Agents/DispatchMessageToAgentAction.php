@@ -8,6 +8,7 @@ use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
 use App\DTO\Agents\AgentRequestData;
 use App\DTO\Messages\OutboundMessageData;
 use App\Enums\AgentRunStatus;
+use App\Enums\ConversationServiceMode;
 use App\Enums\MessageDirection;
 use App\Enums\MessageType;
 use App\Models\CommunicationAgentRun;
@@ -38,6 +39,34 @@ class DispatchMessageToAgentAction
 
         try {
             $message->loadMissing(['contact', 'conversation', 'channel']);
+
+            if ($message->conversation?->service_mode === ConversationServiceMode::Human->value) {
+                $agentRun = CommunicationAgentRun::create([
+                    'tenant_id' => $message->tenant_id,
+                    'conversation_id' => $message->conversation_id,
+                    'message_id' => $message->id,
+                    'provider' => $message->provider,
+                    'agent' => config('communication.agent.provider', 'n8n'),
+                    'status' => AgentRunStatus::Skipped->value,
+                    'response_payload' => [
+                        'status' => 'skipped',
+                        'reason' => 'Conversation is in human service mode.',
+                    ],
+                    'finished_at' => now(),
+                ]);
+
+                Log::info('Agent run skipped because conversation is in human service mode.', [
+                    'tenant_id' => $agentRun->tenant_id,
+                    'provider' => $agentRun->provider,
+                    'message_id' => $agentRun->message_id,
+                    'conversation_id' => $agentRun->conversation_id,
+                    'agent_run_id' => $agentRun->id,
+                    'status' => AgentRunStatus::Skipped->value,
+                ]);
+
+                return $agentRun->refresh();
+            }
+
             $requestData = $this->requestData($message);
 
             $agentRun = CommunicationAgentRun::create([
@@ -120,6 +149,7 @@ class DispatchMessageToAgentAction
                 conversationId: (string) $message->conversation_id,
                 tenantId: $message->tenant_id,
                 reason: 'Agent requested human handoff.',
+                requestedBy: 'agent',
             );
         }
 

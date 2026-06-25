@@ -20,9 +20,12 @@ When this happens, the communication-service marks the conversation with:
 
 - `handoff_requested_at`;
 - `handoff_reason`;
+- `handoff_status=requested`;
+- `handoff_requested_by=agent`;
+- `handoff_requested_reason`;
 - `status=pending`.
 
-No user is assigned automatically.
+The conversation remains `service_mode=ai` until a human explicitly assumes it. No user is assigned automatically.
 
 ## Orchestra Responsibilities
 
@@ -38,6 +41,8 @@ The `orchestra-api` remains responsible for:
 
 The communication-service stores only operational state:
 
+- service mode (`ai` or `human`);
+- handoff status (`none`, `requested`, `assigned`);
 - handoff request timestamp/reason;
 - assigned external user id/name received from Orchestra;
 - assignment timestamp;

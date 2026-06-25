@@ -33,6 +33,8 @@ Query:
 
 - `tenant_id` required string;
 - `status` optional: `open`, `pending`, `closed`;
+- `service_mode` optional: `ai`, `human`;
+- `handoff_status` optional: `none`, `requested`, `assigned`;
 - `assignment_status` optional: `unassigned`, `assigned`;
 - `assigned_external_user_id` optional string;
 - `handoff` optional: `requested`, `none`;
@@ -92,7 +94,7 @@ See `docs/inbox-write-api.md`.
 
 ## Response Safety
 
-Conversation responses include IDs, status, `assignment_status`, `has_handoff_requested`, contact summary and latest message summary.
+Conversation responses include IDs, status, `service_mode`, `handoff_status`, `assignment_status`, `has_handoff_requested`, contact summary and latest message summary.
 
 Message responses include safe message fields only:
 

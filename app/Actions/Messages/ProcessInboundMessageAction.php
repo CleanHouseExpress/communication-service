@@ -4,6 +4,8 @@ namespace App\Actions\Messages;
 
 use App\Actions\Agents\DispatchMessageToAgentAction;
 use App\DTO\Messages\InboundMessageData;
+use App\Enums\ConversationHandoffStatus;
+use App\Enums\ConversationServiceMode;
 use App\Enums\ConversationStatus;
 use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
@@ -192,6 +194,8 @@ class ProcessInboundMessageAction
             'channel_id' => $channel->id,
             'contact_id' => $contact->id,
             'status' => ConversationStatus::Open->value,
+            'service_mode' => ConversationServiceMode::Ai->value,
+            'handoff_status' => ConversationHandoffStatus::None->value,
             'last_message_at' => $messageData->occurredAt ?? now(),
             'metadata' => [],
         ]);
