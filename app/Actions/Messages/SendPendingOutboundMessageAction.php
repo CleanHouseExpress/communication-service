@@ -123,6 +123,24 @@ class SendPendingOutboundMessageAction
                         'status' => MessageStatus::Failed->value,
                         'error' => $result->error,
                     ]);
+
+                    if ($communicationMessage !== null) {
+                        $this->recordConversationEvent->handle(
+                            eventType: ConversationEventType::OutboundFailed,
+                            tenantId: $communicationMessage->tenant_id,
+                            conversationId: (string) $communicationMessage->conversation_id,
+                            actorType: (string) ($outboundMessage->payload['source'] ?? 'system'),
+                            messageId: (string) $communicationMessage->id,
+                            description: 'Outbound message send failed.',
+                            metadata: [
+                                'provider' => $outboundMessage->provider,
+                                'message_type' => $outboundMessage->message_type,
+                                'error' => $result->error !== null
+                                    ? mb_substr($result->error, 0, 300)
+                                    : null,
+                            ],
+                        );
+                    }
                 }
 
                 return $outboundMessage->refresh();

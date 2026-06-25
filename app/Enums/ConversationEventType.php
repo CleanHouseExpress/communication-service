@@ -10,6 +10,9 @@ enum ConversationEventType: string
     case AgentStarted = 'agent_started';
     case AgentFinished = 'agent_finished';
     case AgentSkipped = 'agent_skipped';
+    case AgentFailed = 'agent_failed';
+    case OutboundFailed = 'outbound_failed';
+    case JobFailed = 'job_failed';
     case HandoffRequested = 'handoff_requested';
     case ConversationAssigned = 'conversation_assigned';
     case ConversationReturnedToAi = 'conversation_returned_to_ai';

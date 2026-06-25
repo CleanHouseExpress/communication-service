@@ -60,6 +60,9 @@ return [
     ],
 
     'queues' => [
+        'max_tries' => env('COMMUNICATION_QUEUE_MAX_TRIES', 5),
+        'backoff' => env('COMMUNICATION_QUEUE_BACKOFF', '10,30,60,120,300'),
+        'failed_event_enabled' => env('COMMUNICATION_QUEUE_FAILED_EVENT_ENABLED', true),
         'agent' => [
             'enabled' => env('COMMUNICATION_QUEUE_AGENT_ENABLED', false),
             'name' => env('COMMUNICATION_QUEUE_AGENT_NAME', 'communication-agent'),
