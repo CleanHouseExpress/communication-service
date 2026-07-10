@@ -29,8 +29,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-         RateLimiter::for('internal-health', function (Request $request) {
-            return Limit::perMinute(60)->by($request->ip());
+        RateLimiter::for('internal-health', function (Request $request) {
+        return Limit::perMinute(60)->by($request->ip());
+        });
+
+        RateLimiter::for('internal-api', function (Request $request) {
+            $identifier = $request->bearerToken() ?: $request->ip();
+
+            return Limit::perMinute(120)->by(hash('sha256', $identifier));
         });
     }
 }
