@@ -22,6 +22,9 @@ class WhatsAppInstanceManager
         'already exists',
         'already created',
         'already exist',
+        'already in use',
+        'name already in use',
+        'in use',
         'ja existe',
         'já existe',
         'exist',
@@ -253,3 +256,5 @@ class WhatsAppInstanceManager
         return substr(preg_replace('/(apikey|api_key|token|authorization|secret)=?[^\\s&]*/i', '$1=[redacted]', $message) ?? $message, 0, 300);
     }
 }
+
+

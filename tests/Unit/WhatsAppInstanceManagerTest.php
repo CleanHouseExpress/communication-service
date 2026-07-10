@@ -88,6 +88,20 @@ class WhatsAppInstanceManagerTest extends TestCase
         $this->assertSame('qr-base64', $result['qr_code']);
     }
 
+    public function test_create_already_in_use_exception_is_idempotent_and_connects(): void
+    {
+        $instances = $this->instances();
+        $instances->fetchResult = $this->response(false, null, 'missing');
+        $instances->createException = new RequestException('This name "clin" is already in use.', 400);
+        $instances->connectResult = $this->qrResponse();
+
+        $result = $this->manager($instances)->activate('clin');
+
+        $this->assertSame(1, $instances->fetchCalls);
+        $this->assertSame(1, $instances->createCalls);
+        $this->assertSame(1, $instances->connectCalls);
+        $this->assertSame('qr-base64', $result['qr_code']);
+    }
     public function test_fetch_throws_unrelated_500_and_does_not_create_or_connect(): void
     {
         $instances = $this->instances();
@@ -213,3 +227,4 @@ class FakeWhatsAppInstanceResource extends InstanceResource
         return $this->connectResult ?? new EvolutionResponse(true);
     }
 }
+

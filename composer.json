@@ -21,7 +21,7 @@
         "phpunit/phpunit": "^12.5.12"
     },
     "repositories": [
-        {
+    {
             "type": "package",
             "package": {
                 "name": "cleanhouseexpress/messaging-sdk",
@@ -117,3 +117,4 @@
     "minimum-stability": "stable",
     "prefer-stable": true
 }
+

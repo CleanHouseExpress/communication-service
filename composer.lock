@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "65a5a4b657e9bd2b91e45a1c10624a8a",
+    "content-hash": "a4b32dea16183274ce3f79be98c08cb7",
     "packages": [
         {
             "name": "brick/math",
@@ -137,15 +137,19 @@
         {
             "name": "cleanhouseexpress/messaging-sdk",
             "version": "dev-main",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/cleanhouseexpress/messaging-sdk",
-                "reference": "main"
+            "dist": {
+                "type": "path",
+                "url": "../../messaging-sdk",
+                "reference": "981dcc998ef63c42737a4d17d7377b775fc3adcc"
             },
             "require": {
                 "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
                 "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
                 "php": "^8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0|^11.0|^12.0",
+                "phpunit/phpunit": "^10.5|^11.0"
             },
             "type": "library",
             "extra": {
@@ -162,6 +166,19 @@
                 "psr-4": {
                     "Clin\\MessagingSdk\\": "src/"
                 }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Clin\\MessagingSdk\\Tests\\": "tests/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Laravel/PHP SDK independente para WhatsApp via Evolution API",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
             }
         },
         {
