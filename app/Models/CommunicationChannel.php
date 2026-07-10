@@ -17,14 +17,29 @@ class CommunicationChannel extends Model
         'provider',
         'external_id',
         'name',
+        'type',
         'status',
         'settings',
+        'provisioned_by_system',
+        'provisioned_at',
+        'provisioning_status',
+        'provisioning_error',
+        'expected_phone_number',
+        'connected_phone_number',
+        'last_connected_at',
+        'last_disconnected_at',
+        'last_status_check_at',
     ];
 
     protected function casts(): array
     {
         return [
             'settings' => 'array',
+            'provisioned_by_system' => 'boolean',
+            'provisioned_at' => 'datetime',
+            'last_connected_at' => 'datetime',
+            'last_disconnected_at' => 'datetime',
+            'last_status_check_at' => 'datetime',
         ];
     }
 

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d95575839c8097c601d7597342d3a7fd",
+    "content-hash": "65a5a4b657e9bd2b91e45a1c10624a8a",
     "packages": [
         {
             "name": "brick/math",
@@ -133,6 +133,36 @@
                 }
             ],
             "time": "2024-02-09T16:56:22+00:00"
+        },
+        {
+            "name": "cleanhouseexpress/messaging-sdk",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/cleanhouseexpress/messaging-sdk",
+                "reference": "main"
+            },
+            "require": {
+                "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Clin\\MessagingSdk\\MessagingServiceProvider"
+                    ],
+                    "aliases": {
+                        "Messaging": "Clin\\MessagingSdk\\Facades\\Messaging"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Clin\\MessagingSdk\\": "src/"
+                }
+            }
         },
         {
             "name": "dflydev/dot-access-data",
@@ -8284,7 +8314,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "cleanhouseexpress/messaging-sdk": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

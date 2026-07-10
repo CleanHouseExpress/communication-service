@@ -334,7 +334,7 @@ class InternalInboxReadApiTest extends TestCase
         $contact = CommunicationContact::create([
             'tenant_id' => $tenantId,
             'provider' => 'zapi',
-            'external_id' => $contact['external_id'] ?? '5500000000000'.random_int(100, 999),
+            'external_id' => $contact['external_id'] ?? '5500000000000'.uniqid(),
             'name' => $contact['name'] ?? 'Cliente Teste',
             'phone' => $contact['phone'] ?? '5500000000000',
         ]);

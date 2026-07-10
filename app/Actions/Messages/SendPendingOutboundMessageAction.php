@@ -9,7 +9,7 @@ use App\Enums\MessageStatus;
 use App\Events\Realtime\ConversationUpdated;
 use App\Events\Realtime\MessageSent;
 use App\Models\CommunicationOutboundMessage;
-use App\Services\Providers\ZapiClient;
+use App\Services\Providers\ZApiProviderService;
 use App\Services\Realtime\CommunicationRealtimePublisher;
 use App\Support\Tenancy\CurrentTenantConnection;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +19,7 @@ use InvalidArgumentException;
 class SendPendingOutboundMessageAction
 {
     public function __construct(
-        private readonly ZapiClient $zapiClient,
+        private readonly ZApiProviderService $zapiProvider,
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RecordConversationEventAction $recordConversationEvent,
@@ -65,8 +65,17 @@ class SendPendingOutboundMessageAction
                 $outboundMessage->forceFill(['status' => MessageStatus::Sending->value])->save();
                 $communicationMessage?->forceFill(['status' => MessageStatus::Sending->value])->save();
 
+                $channel = $outboundMessage->channel;
+
+                if ($channel === null) {
+                    throw new InvalidArgumentException('Outbound message channel was not found.');
+                }
+
                 $result = match ($outboundMessage->message_type) {
-                    'text' => $this->zapiClient->sendText($outboundMessage->external_contact_id, (string) $outboundMessage->text),
+                    'text' => $this->zapiProvider->sendMessage($channel, [
+                        'phone' => $outboundMessage->external_contact_id,
+                        'message' => (string) $outboundMessage->text,
+                    ]),
                     default => throw new InvalidArgumentException('Only text outbound messages are supported in this phase.'),
                 };
 

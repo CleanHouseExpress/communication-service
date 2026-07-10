@@ -5,7 +5,7 @@ return [
 
     'environment' => env('APP_ENV', 'production'),
 
-    'service_token' => env('COMMUNICATION_GATEWAY_SERVICE_TOKEN'),
+    'service_token' => env('COMMUNICATION_GATEWAY_SERVICE_TOKEN', env('COMMUNICATION_INTERNAL_TOKEN')),
 
     'default_provider' => env('COMMUNICATION_DEFAULT_PROVIDER', 'zapi'),
 
@@ -30,10 +30,24 @@ return [
     'providers' => [
         'zapi' => [
             'enabled' => env('COMMUNICATION_ZAPI_ENABLED', false),
-            'base_url' => env('COMMUNICATION_ZAPI_BASE_URL'),
+            'base_url' => env('ZAPI_BASE_URL', env('COMMUNICATION_ZAPI_BASE_URL')),
+            'partner_token' => env('ZAPI_PARTNER_TOKEN', env('COMMUNICATION_ZAPI_PARTNER_TOKEN')),
             'instance_id' => env('COMMUNICATION_ZAPI_INSTANCE_ID'),
             'token' => env('COMMUNICATION_ZAPI_TOKEN'),
-            'client_token' => env('COMMUNICATION_ZAPI_CLIENT_TOKEN'),
+            'client_token' => env('ZAPI_CLIENT_TOKEN', env('COMMUNICATION_ZAPI_CLIENT_TOKEN')),
+            'api_url' => env('COMMUNICATION_ZAPI_API_URL', 'https://api.z-api.io'),
+            'webhook_base_url' => env('ZAPI_WEBHOOK_BASE_URL', env('COMMUNICATION_ZAPI_WEBHOOK_BASE_URL')),
+            'paths' => [
+                'create_instance' => env('COMMUNICATION_ZAPI_CREATE_INSTANCE_PATH', '/instances'),
+                'qr_code' => env('COMMUNICATION_ZAPI_QR_CODE_PATH', '/qr-code/image'),
+                'status' => env('COMMUNICATION_ZAPI_STATUS_PATH', '/status'),
+                'disconnect' => env('COMMUNICATION_ZAPI_DISCONNECT_PATH', '/disconnect'),
+                'send_text' => env('COMMUNICATION_ZAPI_SEND_TEXT_PATH', '/send-text'),
+                'webhook_messages' => env('COMMUNICATION_ZAPI_WEBHOOK_MESSAGES_PATH', '/update-webhook-received'),
+                'webhook_message_status' => env('COMMUNICATION_ZAPI_WEBHOOK_MESSAGE_STATUS_PATH', '/update-webhook-delivery'),
+                'webhook_connected' => env('COMMUNICATION_ZAPI_WEBHOOK_CONNECTED_PATH', '/update-webhook-connected'),
+                'webhook_disconnected' => env('COMMUNICATION_ZAPI_WEBHOOK_DISCONNECTED_PATH', '/update-webhook-disconnected'),
+            ],
             'webhook_secret' => env('COMMUNICATION_ZAPI_WEBHOOK_SECRET'),
             'webhook_signature_header' => env('COMMUNICATION_ZAPI_WEBHOOK_SIGNATURE_HEADER', 'X-Zapi-Signature'),
             'allow_unsigned_webhook_local' => env('COMMUNICATION_ZAPI_ALLOW_UNSIGNED_WEBHOOK_LOCAL', true),
