@@ -6,7 +6,7 @@
     "keywords": ["orchestra", "communication", "gateway", "api"],
     "license": "MIT",
     "require": {
-        "cleanhouseexpress/messaging-sdk": "dev-main",
+        "cleanhouseexpress/messaging-sdk": "^1.1",
         "php": "^8.3",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0"
@@ -20,38 +20,10 @@
         "nunomaduro/collision": "^8.6",
         "phpunit/phpunit": "^12.5.12"
     },
-    "repositories": [
-    {
-            "type": "package",
-            "package": {
-                "name": "cleanhouseexpress/messaging-sdk",
-                "version": "dev-main",
-                "source": {
-                    "type": "git",
-                    "url": "https://github.com/cleanhouseexpress/messaging-sdk",
-                    "reference": "main"
-                },
-                "require": {
-                    "php": "^8.2",
-                    "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
-                    "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
-                },
-                "autoload": {
-                    "psr-4": {
-                        "Clin\\MessagingSdk\\": "src/"
-                    }
-                },
-                "extra": {
-                    "laravel": {
-                        "providers": [
-                            "Clin\\MessagingSdk\\MessagingServiceProvider"
-                        ],
-                        "aliases": {
-                            "Messaging": "Clin\\MessagingSdk\\Facades\\Messaging"
-                        }
-                    }
-                }
-            }
+   "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/CleanHouseExpress/messaging-sdk.git"
         }
     ],
     "autoload": {
