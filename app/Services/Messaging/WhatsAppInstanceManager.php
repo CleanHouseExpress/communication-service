@@ -9,9 +9,25 @@ use Throwable;
 
 class WhatsAppInstanceManager
 {
-    public function __construct(private readonly MessagingClient $messaging)
-    {
-    }
+    private const MISSING_INSTANCE_MESSAGES = [
+        'not found',
+        'missing',
+        'does not exist',
+        'inexist',
+        'nao existe',
+        'não existe',
+    ];
+
+    private const ALREADY_EXISTS_MESSAGES = [
+        'already exists',
+        'already created',
+        'already exist',
+        'ja existe',
+        'já existe',
+        'exist',
+    ];
+
+    public function __construct(private readonly MessagingClient $messaging) {}
 
     public function activate(string $instanceName): array
     {
@@ -28,19 +44,25 @@ class WhatsAppInstanceManager
     private function ensureInstanceExists(string $instanceName): void
     {
         try {
-            $this->messaging->instances()->fetch($instanceName);
+            $response = $this->messaging->instances()->fetch($instanceName);
 
-            return;
+            if (! $this->responseIndicatesMissingInstance($response)) {
+                return;
+            }
         } catch (RequestException $exception) {
-            if ((int) $exception->getCode() !== 404) {
+            if (! $this->exceptionIndicatesMissingInstance($exception)) {
                 throw $exception;
             }
         }
 
         try {
-            $this->messaging->instances()->create($instanceName);
+            $response = $this->messaging->instances()->create($instanceName);
+
+            if (! $this->responseOk($response) && ! $this->responseIndicatesAlreadyExists($response)) {
+                throw new RequestException($this->extractMessage($response) ?: 'Evolution instance could not be created.');
+            }
         } catch (RequestException $exception) {
-            if (! str_contains(strtolower($exception->getMessage()), 'exist')) {
+            if (! $this->exceptionIndicatesAlreadyExists($exception)) {
                 throw $exception;
             }
         }
@@ -84,6 +106,92 @@ class WhatsAppInstanceManager
             ],
             'last_updated_at' => now()->toJSON(),
         ];
+    }
+
+    private function responseIndicatesMissingInstance(mixed $response): bool
+    {
+        return ! $this->responseOk($response)
+            || $this->containsAny($this->extractMessage($response), self::MISSING_INSTANCE_MESSAGES);
+    }
+
+    private function exceptionIndicatesMissingInstance(Throwable $exception): bool
+    {
+        return (int) $exception->getCode() === 404
+            || $this->containsAny($exception->getMessage(), self::MISSING_INSTANCE_MESSAGES);
+    }
+
+    private function responseIndicatesAlreadyExists(mixed $response): bool
+    {
+        return $this->containsAny($this->extractMessage($response), self::ALREADY_EXISTS_MESSAGES);
+    }
+
+    private function exceptionIndicatesAlreadyExists(Throwable $exception): bool
+    {
+        return $this->containsAny($exception->getMessage(), self::ALREADY_EXISTS_MESSAGES);
+    }
+
+    /**
+     * @param  list<string>  $needles
+     */
+    private function containsAny(?string $message, array $needles): bool
+    {
+        if ($message === null || $message === '') {
+            return false;
+        }
+
+        $normalized = mb_strtolower($message);
+
+        foreach ($needles as $needle) {
+            if (str_contains($normalized, mb_strtolower($needle))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function responseOk(mixed $response): bool
+    {
+        if ($response instanceof EvolutionResponse) {
+            return $response->ok;
+        }
+
+        if (is_array($response) && array_key_exists('ok', $response)) {
+            return (bool) $response['ok'];
+        }
+
+        if (is_object($response) && property_exists($response, 'ok')) {
+            return (bool) $response->ok;
+        }
+
+        if (is_array($response) && array_key_exists('success', $response)) {
+            return (bool) $response['success'];
+        }
+
+        if (is_object($response) && property_exists($response, 'success')) {
+            return (bool) $response->success;
+        }
+
+        return true;
+    }
+
+    private function extractMessage(mixed $response): ?string
+    {
+        $message = match (true) {
+            $response instanceof EvolutionResponse => $response->message
+                ?? data_get($response->data, 'message')
+                ?? data_get($response->raw, 'message')
+                ?? data_get($response->raw, 'response.message'),
+            is_array($response) => data_get($response, 'message') ?? data_get($response, 'response.message'),
+            is_object($response) => data_get($response, 'message') ?? data_get($response, 'response.message'),
+            default => null,
+        };
+
+        if (is_array($message)) {
+            $message = json_encode($message);
+        }
+
+        return is_scalar($message) && $message !== '' ? (string) $message : null;
     }
 
     private function extractQrCode(EvolutionResponse $response): ?string
