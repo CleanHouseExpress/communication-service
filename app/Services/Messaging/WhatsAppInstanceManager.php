@@ -99,15 +99,9 @@ class WhatsAppInstanceManager
             return;
         }
 
-        $events = config('messaging.providers.evolution.webhook_events', []);
-
         try {
             $response = $this->messaging->webhooks()->set($instanceName, [
-                'enabled' => true,
                 'url' => $url,
-                'webhook_by_events' => false,
-                'webhook_base64' => false,
-                'events' => is_array($events) ? array_values($events) : [],
             ]);
 
             if (! $this->responseOk($response)) {
