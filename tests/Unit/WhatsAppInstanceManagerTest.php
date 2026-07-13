@@ -127,7 +127,13 @@ class WhatsAppInstanceManagerTest extends TestCase
         $this->assertSame(1, $webhooks->setCalls);
         $this->assertSame('clin', $webhooks->lastInstanceName);
         $this->assertSame([
-            'url' => 'https://communication.test/api/webhooks/evolution',
+            'webhook' => [
+                'enabled' => true,
+                'url' => 'https://communication.test/api/webhooks/evolution',
+                'webhook_by_events' => false,
+                'webhook_base64' => false,
+                'events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+            ],
         ], $webhooks->lastPayload);
         $this->assertSame('qr-base64', $result['qr_code']);
     }
