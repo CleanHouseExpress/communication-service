@@ -7,11 +7,19 @@ use Clin\MessagingSdk\DTO\EvolutionResponse;
 use Clin\MessagingSdk\Exceptions\RequestException;
 use Clin\MessagingSdk\MessagingClient;
 use Clin\MessagingSdk\Providers\Evolution\Resources\InstanceResource;
+use Clin\MessagingSdk\Providers\Evolution\Resources\WebhookResource;
 use Tests\TestCase;
 use Throwable;
 
 class WhatsAppInstanceManagerTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['messaging.providers.evolution.webhook_url' => null]);
+    }
+
     public function test_fetch_success_does_not_create_and_connects(): void
     {
         $instances = $this->instances();
@@ -102,6 +110,32 @@ class WhatsAppInstanceManagerTest extends TestCase
         $this->assertSame(1, $instances->connectCalls);
         $this->assertSame('qr-base64', $result['qr_code']);
     }
+
+    public function test_activate_configures_evolution_webhook_when_url_is_available(): void
+    {
+        config([
+            'messaging.providers.evolution.webhook_url' => 'https://communication.test/api/webhooks/evolution',
+            'messaging.providers.evolution.webhook_events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+        ]);
+        $instances = $this->instances();
+        $instances->fetchResult = $this->response(true, ['instanceName' => 'clin']);
+        $instances->connectResult = $this->qrResponse();
+        $webhooks = new FakeWhatsAppWebhookResource;
+
+        $result = $this->manager($instances, $webhooks)->activate('clin');
+
+        $this->assertSame(1, $webhooks->setCalls);
+        $this->assertSame('clin', $webhooks->lastInstanceName);
+        $this->assertSame([
+            'enabled' => true,
+            'url' => 'https://communication.test/api/webhooks/evolution',
+            'webhook_by_events' => false,
+            'webhook_base64' => false,
+            'events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+        ], $webhooks->lastPayload);
+        $this->assertSame('qr-base64', $result['qr_code']);
+    }
+
     public function test_fetch_throws_unrelated_500_and_does_not_create_or_connect(): void
     {
         $instances = $this->instances();
@@ -137,15 +171,23 @@ class WhatsAppInstanceManagerTest extends TestCase
         }
     }
 
-    private function manager(FakeWhatsAppInstanceResource $instances): WhatsAppInstanceManager
+    private function manager(FakeWhatsAppInstanceResource $instances, ?FakeWhatsAppWebhookResource $webhooks = null): WhatsAppInstanceManager
     {
-        $client = new class($instances) extends MessagingClient
+        $client = new class($instances, $webhooks) extends MessagingClient
         {
-            public function __construct(private readonly InstanceResource $instances) {}
+            public function __construct(
+                private readonly InstanceResource $instances,
+                private readonly ?WebhookResource $webhooks,
+            ) {}
 
             public function instances(): InstanceResource
             {
                 return $this->instances;
+            }
+
+            public function webhooks(): WebhookResource
+            {
+                return $this->webhooks ?? new FakeWhatsAppWebhookResource;
             }
         };
 
@@ -228,3 +270,30 @@ class FakeWhatsAppInstanceResource extends InstanceResource
     }
 }
 
+class FakeWhatsAppWebhookResource extends WebhookResource
+{
+    public int $setCalls = 0;
+
+    public ?string $lastInstanceName = null;
+
+    public ?array $lastPayload = null;
+
+    public ?EvolutionResponse $setResult = null;
+
+    public ?Throwable $setException = null;
+
+    public function __construct() {}
+
+    public function set(string $instanceName, array $payload): EvolutionResponse
+    {
+        $this->setCalls++;
+        $this->lastInstanceName = $instanceName;
+        $this->lastPayload = $payload;
+
+        if ($this->setException !== null) {
+            throw $this->setException;
+        }
+
+        return $this->setResult ?? new EvolutionResponse(true);
+    }
+}

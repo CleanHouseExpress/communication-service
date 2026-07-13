@@ -7,12 +7,15 @@ use App\Contracts\Messaging\MessageSenderInterface;
 use App\DTO\Messaging\ChannelStatusResult;
 use App\DTO\Messaging\MessagePayload;
 use App\DTO\Messaging\MessageResult;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class InternalWhatsAppMessagingTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_internal_whatsapp_message_endpoint_requires_service_token(): void
     {
         $this->postJson('/api/internal/communication/messages/whatsapp/text', [
@@ -104,6 +107,7 @@ class InternalWhatsAppMessagingTest extends TestCase
                 ->push(['message' => 'not found'], 404)
                 ->push(['status' => 200, 'response' => ['instanceName' => 'clin']], 200),
             'https://evolution.test/instance/create' => Http::response(['status' => 200, 'response' => ['instanceName' => 'clin']], 200),
+            'https://evolution.test/webhook/set/clin' => Http::response(['status' => 200, 'response' => ['enabled' => true]], 200),
             'https://evolution.test/instance/connect/clin' => Http::response(['status' => 200, 'response' => ['qrCode' => 'qr-base64']], 200),
         ]);
 
@@ -129,10 +133,12 @@ class InternalWhatsAppMessagingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('instance_name', 'clin');
 
-        Http::assertSentCount(5);
+        Http::assertSentCount(7);
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
             && $request->url() === 'https://evolution.test/instance/create'
             && $request->hasHeader('apikey', 'provider-secret'));
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+            && $request->url() === 'https://evolution.test/webhook/set/clin');
     }
 
     public function test_internal_whatsapp_refresh_qrcode_uses_same_instance(): void
@@ -172,6 +178,61 @@ class InternalWhatsAppMessagingTest extends TestCase
                 'provider' => 'evolution',
                 'event' => 'messages.upsert',
             ]);
+    }
+
+    public function test_evolution_webhook_processes_inbound_message_for_orchestra_instance(): void
+    {
+        config([
+            'communication.tenancy.enforce' => false,
+            'communication.tenancy.runtime.enabled' => false,
+            'communication.agent.enabled' => false,
+        ]);
+
+        $this->postJson('/api/webhooks/evolution', [
+            'event' => 'messages.upsert',
+            'instance' => 'orchestra-clin-4-whatsapp',
+            'data' => [
+                'key' => [
+                    'id' => 'provider-message-1',
+                    'remoteJid' => '5511999999999@s.whatsapp.net',
+                    'fromMe' => false,
+                ],
+                'pushName' => 'Cliente Clin',
+                'message' => [
+                    'conversation' => 'Oi, preciso de atendimento',
+                ],
+                'messageTimestamp' => 1_783_966_800,
+            ],
+        ])
+            ->assertOk()
+            ->assertJson([
+                'accepted' => true,
+                'provider' => 'evolution',
+                'event' => 'messages.upsert',
+                'processed' => true,
+                'message_created' => true,
+            ]);
+
+        $this->assertDatabaseHas('communication_contacts', [
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'external_id' => '5511999999999',
+            'name' => 'Cliente Clin',
+            'phone' => '5511999999999',
+        ]);
+        $this->assertDatabaseHas('communication_messages', [
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'external_message_id' => 'provider-message-1',
+            'direction' => 'inbound',
+            'message_type' => 'text',
+            'text' => 'Oi, preciso de atendimento',
+            'status' => 'received',
+        ]);
+        $this->assertDatabaseHas('communication_conversations', [
+            'tenant_id' => '4',
+            'status' => 'open',
+        ]);
     }
 
     public function test_application_does_not_call_evolution_directly_outside_messaging_sdk(): void

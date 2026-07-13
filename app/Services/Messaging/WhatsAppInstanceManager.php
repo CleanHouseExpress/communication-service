@@ -5,6 +5,7 @@ namespace App\Services\Messaging;
 use Clin\MessagingSdk\DTO\EvolutionResponse;
 use Clin\MessagingSdk\Exceptions\RequestException;
 use Clin\MessagingSdk\MessagingClient;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class WhatsAppInstanceManager
@@ -35,6 +36,7 @@ class WhatsAppInstanceManager
     public function activate(string $instanceName): array
     {
         $this->ensureInstanceExists($instanceName);
+        $this->configureWebhook($instanceName);
 
         return $this->connect($instanceName);
     }
@@ -86,6 +88,39 @@ class WhatsAppInstanceManager
                 'message' => $this->sanitizeMessage($exception->getMessage()),
                 'last_updated_at' => now()->toJSON(),
             ];
+        }
+    }
+
+    private function configureWebhook(string $instanceName): void
+    {
+        $url = config('messaging.providers.evolution.webhook_url');
+
+        if (! is_string($url) || trim($url) === '') {
+            return;
+        }
+
+        $events = config('messaging.providers.evolution.webhook_events', []);
+
+        try {
+            $response = $this->messaging->webhooks()->set($instanceName, [
+                'enabled' => true,
+                'url' => $url,
+                'webhook_by_events' => false,
+                'webhook_base64' => false,
+                'events' => is_array($events) ? array_values($events) : [],
+            ]);
+
+            if (! $this->responseOk($response)) {
+                Log::warning('Evolution webhook configuration did not return success.', [
+                    'instance_name' => $instanceName,
+                    'message' => $this->sanitizeMessage($this->extractMessage($response) ?? 'Unknown webhook configuration failure.'),
+                ]);
+            }
+        } catch (Throwable $exception) {
+            Log::warning('Evolution webhook configuration failed without interrupting activation.', [
+                'instance_name' => $instanceName,
+                'message' => $this->sanitizeMessage($exception->getMessage()),
+            ]);
         }
     }
 
