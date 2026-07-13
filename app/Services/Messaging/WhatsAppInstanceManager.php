@@ -43,6 +43,9 @@ class WhatsAppInstanceManager
 
     public function refreshQrCode(string $instanceName): array
     {
+        $this->ensureInstanceExists($instanceName);
+        $this->configureWebhook($instanceName);
+
         return $this->connect($instanceName);
     }
 
@@ -101,13 +104,16 @@ class WhatsAppInstanceManager
 
         $events = config('messaging.providers.evolution.webhook_events', []);
 
+        $webhookByEvents = (bool) config('messaging.providers.evolution.webhook_by_events', false);
+        $webhookBase64 = (bool) config('messaging.providers.evolution.webhook_base64', false);
+
         try {
             $response = $this->messaging->webhooks()->set($instanceName, [
                 'webhook' => [
                     'enabled' => true,
                     'url' => $url,
-                    'webhook_by_events' => false,
-                    'webhook_base64' => false,
+                    'webhook_by_events' => $webhookByEvents,
+                    'webhook_base64' => $webhookBase64,
                     'events' => is_array($events) ? array_values($events) : [],
                 ],
             ]);
@@ -293,5 +299,4 @@ class WhatsAppInstanceManager
         return substr(preg_replace('/(apikey|api_key|token|authorization|secret)=?[^\\s&]*/i', '$1=[redacted]', $message) ?? $message, 0, 300);
     }
 }
-
 

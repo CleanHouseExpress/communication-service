@@ -138,6 +138,38 @@ class WhatsAppInstanceManagerTest extends TestCase
         $this->assertSame('qr-base64', $result['qr_code']);
     }
 
+    public function test_refresh_qrcode_also_ensures_instance_and_configures_evolution_webhook(): void
+    {
+        config([
+            'messaging.providers.evolution.webhook_url' => 'https://communication.test/api/webhooks/evolution',
+            'messaging.providers.evolution.webhook_events' => ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
+            'messaging.providers.evolution.webhook_by_events' => false,
+            'messaging.providers.evolution.webhook_base64' => false,
+        ]);
+        $instances = $this->instances();
+        $instances->fetchResult = $this->response(true, ['instanceName' => 'clin']);
+        $instances->connectResult = $this->qrResponse();
+        $webhooks = new FakeWhatsAppWebhookResource;
+
+        $result = $this->manager($instances, $webhooks)->refreshQrCode('clin');
+
+        $this->assertSame(1, $instances->fetchCalls);
+        $this->assertSame(0, $instances->createCalls);
+        $this->assertSame(1, $webhooks->setCalls);
+        $this->assertSame('clin', $webhooks->lastInstanceName);
+        $this->assertSame([
+            'webhook' => [
+                'enabled' => true,
+                'url' => 'https://communication.test/api/webhooks/evolution',
+                'webhook_by_events' => false,
+                'webhook_base64' => false,
+                'events' => ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
+            ],
+        ], $webhooks->lastPayload);
+        $this->assertSame(1, $instances->connectCalls);
+        $this->assertSame('qr-base64', $result['qr_code']);
+    }
+
     public function test_fetch_throws_unrelated_500_and_does_not_create_or_connect(): void
     {
         $instances = $this->instances();

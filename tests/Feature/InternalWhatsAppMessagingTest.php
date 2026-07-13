@@ -146,8 +146,10 @@ class InternalWhatsAppMessagingTest extends TestCase
         config([
             'communication.service_token' => 'valid-token',
             'messaging.providers.evolution.base_url' => 'https://evolution.test',
+            'messaging.providers.evolution.webhook_url' => null,
         ]);
         Http::fake([
+            'https://evolution.test/instance/fetch/orchestra-acme-whatsapp' => Http::response(['status' => 200, 'response' => ['instanceName' => 'orchestra-acme-whatsapp']], 200),
             'https://evolution.test/instance/connect/orchestra-acme-whatsapp' => Http::response([
                 'status' => 200,
                 'response' => ['qrCode' => 'new-qr'],
