@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\Messaging\MessageSenderInterface;
+use App\DTO\Messaging\MessagePayload;
+use App\DTO\Messaging\MessageResult;
 use App\Models\CommunicationChannel;
 use App\Models\CommunicationContact;
 use App\Models\CommunicationConversation;
@@ -128,6 +131,83 @@ class InternalConversationSendMessageTest extends TestCase
         $this->assertSame('5541999999999', $outbound->external_contact_id);
         $this->assertSame('human', $outbound->payload['source']);
         $this->assertNotEmpty($outbound->idempotency_key);
+    }
+
+    public function test_sends_whatsapp_conversation_message_through_messaging_sdk(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $sender = new class implements MessageSenderInterface
+        {
+            public ?MessagePayload $payload = null;
+
+            public function sendText(MessagePayload $payload): MessageResult
+            {
+                $this->payload = $payload;
+
+                return new MessageResult(true, 'evolution', 'text', $payload->instanceName, 'evolution-message-1', 'sent');
+            }
+
+            public function sendImage(MessagePayload $payload): MessageResult
+            {
+                throw new \LogicException('Unexpected image send.');
+            }
+
+            public function sendDocument(MessagePayload $payload): MessageResult
+            {
+                throw new \LogicException('Unexpected document send.');
+            }
+
+            public function sendAudio(MessagePayload $payload): MessageResult
+            {
+                throw new \LogicException('Unexpected audio send.');
+            }
+        };
+        $this->app->instance(MessageSenderInterface::class, $sender);
+
+        $channel = CommunicationChannel::create([
+            'tenant_id' => 'tenant-1',
+            'provider' => 'whatsapp',
+            'external_id' => 'orchestra-clin-4-whatsapp',
+            'name' => 'WhatsApp',
+            'status' => 'active',
+        ]);
+        $contact = CommunicationContact::create([
+            'tenant_id' => 'tenant-1',
+            'provider' => 'whatsapp',
+            'external_id' => '5541999999999',
+            'name' => 'Maria Cliente',
+            'phone' => '5541999999999',
+        ]);
+        $conversation = CommunicationConversation::create([
+            'tenant_id' => 'tenant-1',
+            'channel_id' => $channel->id,
+            'contact_id' => $contact->id,
+            'status' => 'open',
+            'last_message_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->postJson("/api/internal/inbox/conversations/{$conversation->id}/messages", [
+                'tenant_id' => 'tenant-1',
+                'text' => 'Mensagem via Evolution',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.provider', 'whatsapp')
+            ->assertJsonPath('data.status', 'sent');
+
+        $this->assertSame('orchestra-clin-4-whatsapp', $sender->payload?->instanceName);
+        $this->assertSame('5541999999999', $sender->payload?->number);
+        $this->assertSame('Mensagem via Evolution', $sender->payload?->message);
+
+        $message = CommunicationMessage::query()->where('conversation_id', $conversation->id)->firstOrFail();
+        $outbound = CommunicationOutboundMessage::query()->where('communication_message_id', $message->id)->firstOrFail();
+
+        $this->assertSame('whatsapp', $message->provider);
+        $this->assertSame('whatsapp', $outbound->provider);
+        $this->assertSame('sent', $outbound->status);
+        $this->assertSame('evolution-message-1', $outbound->provider_message_id);
     }
 
     public function test_response_does_not_include_raw_or_provider_payloads(): void

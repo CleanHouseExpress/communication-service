@@ -32,7 +32,10 @@ class EvolutionWebhookNormalizer
         return new InboundMessageData(
             provider: ProviderType::WhatsApp,
             tenantId: $this->tenantId($payload, $data),
-            channelId: $this->firstString($payload, ['channel_id', 'channelId']) ?? $this->firstString($data, ['channel_id', 'channelId']),
+            channelId: $this->firstString($payload, ['channel_id', 'channelId'])
+                ?? $this->firstString($data, ['channel_id', 'channelId'])
+                ?? $this->firstString($payload, ['instance', 'instance_name', 'instanceName'])
+                ?? $this->firstString($data, ['instance', 'instance_name', 'instanceName']),
             externalEventId: $this->firstString($payload, ['event_id', 'eventId', 'id']) ?? $externalMessageId,
             externalMessageId: $externalMessageId,
             externalContactId: $contactPhone,

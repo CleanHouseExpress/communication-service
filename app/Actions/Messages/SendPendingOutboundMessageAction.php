@@ -4,10 +4,17 @@ namespace App\Actions\Messages;
 
 use App\Actions\Conversations\RecordConversationEventAction;
 use App\Actions\Tenancy\ResolveTenantRuntimeConnectionAction;
+use App\Contracts\Messaging\MessageSenderInterface;
+use App\DTO\Messaging\MessagePayload;
+use App\DTO\Providers\ZapiSendResult;
 use App\Enums\ConversationEventType;
+use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
+use App\Enums\ProviderType;
 use App\Events\Realtime\ConversationUpdated;
 use App\Events\Realtime\MessageSent;
+use App\Models\CommunicationChannel;
+use App\Models\CommunicationMessage;
 use App\Models\CommunicationOutboundMessage;
 use App\Services\Providers\ZApiProviderService;
 use App\Services\Realtime\CommunicationRealtimePublisher;
@@ -20,6 +27,7 @@ class SendPendingOutboundMessageAction
 {
     public function __construct(
         private readonly ZApiProviderService $zapiProvider,
+        private readonly MessageSenderInterface $whatsAppSender,
         private readonly ResolveTenantRuntimeConnectionAction $resolveTenantRuntimeConnection,
         private readonly CurrentTenantConnection $currentTenantConnection,
         private readonly RecordConversationEventAction $recordConversationEvent,
@@ -72,10 +80,7 @@ class SendPendingOutboundMessageAction
                 }
 
                 $result = match ($outboundMessage->message_type) {
-                    'text' => $this->zapiProvider->sendMessage($channel, [
-                        'phone' => $outboundMessage->external_contact_id,
-                        'message' => (string) $outboundMessage->text,
-                    ]),
+                    'text' => $this->sendText($outboundMessage, $channel),
                     default => throw new InvalidArgumentException('Only text outbound messages are supported in this phase.'),
                 };
 
@@ -179,6 +184,72 @@ class SendPendingOutboundMessageAction
                 $this->currentTenantConnection->clear();
             }
         }
+    }
+
+    private function sendText(CommunicationOutboundMessage $outboundMessage, CommunicationChannel $channel): ZapiSendResult
+    {
+        if ($channel->provider === ProviderType::Zapi->value) {
+            return $this->zapiProvider->sendMessage($channel, [
+                'phone' => $outboundMessage->external_contact_id,
+                'message' => (string) $outboundMessage->text,
+            ]);
+        }
+
+        if (in_array($channel->provider, [ProviderType::WhatsApp->value, 'evolution'], true)) {
+            $instanceName = $this->whatsAppInstanceName($outboundMessage, $channel);
+
+            if ($instanceName === null) {
+                return ZapiSendResult::failure('WhatsApp instance name could not be resolved for outbound message.');
+            }
+
+            $result = $this->whatsAppSender->sendText(new MessagePayload(
+                instanceName: $instanceName,
+                number: $outboundMessage->external_contact_id,
+                message: (string) $outboundMessage->text,
+            ));
+
+            if (! $result->success) {
+                return ZapiSendResult::failure($result->message ?? 'WhatsApp provider failed to send message.', $result->providerResponse);
+            }
+
+            return ZapiSendResult::success($result->providerMessageId, $result->providerResponse);
+        }
+
+        return ZapiSendResult::failure("Provider [{$channel->provider}] is not supported for outbound messages.");
+    }
+
+    private function whatsAppInstanceName(CommunicationOutboundMessage $outboundMessage, CommunicationChannel $channel): ?string
+    {
+        foreach ([
+            $channel->external_id,
+            $channel->settings['instance_name'] ?? null,
+            $outboundMessage->payload['instance_name'] ?? null,
+            $this->latestInboundInstanceName($outboundMessage),
+        ] as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    private function latestInboundInstanceName(CommunicationOutboundMessage $outboundMessage): ?string
+    {
+        $message = CommunicationMessage::query()
+            ->where('tenant_id', $outboundMessage->tenant_id)
+            ->where('conversation_id', $outboundMessage->conversation_id)
+            ->where('direction', MessageDirection::Inbound->value)
+            ->latest('occurred_at')
+            ->latest('created_at')
+            ->first();
+
+        $instanceName = $message?->payload['instance']
+            ?? $message?->payload['instance_name']
+            ?? $message?->payload['instanceName']
+            ?? null;
+
+        return is_string($instanceName) && trim($instanceName) !== '' ? trim($instanceName) : null;
     }
 
     private function transaction(callable $callback): mixed

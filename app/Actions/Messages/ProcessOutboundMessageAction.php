@@ -8,6 +8,7 @@ use App\Enums\MessageDirection;
 use App\Enums\MessageStatus;
 use App\Enums\ProviderType;
 use App\Jobs\SendOutboundMessageJob;
+use App\Models\CommunicationChannel;
 use App\Models\CommunicationMessage;
 use App\Models\CommunicationOutboundMessage;
 use App\Support\Tenancy\CurrentTenantConnection;
@@ -52,12 +53,15 @@ class ProcessOutboundMessageAction
                     ];
                 }
 
+                $channel = CommunicationChannel::query()->find($messageData->channelId);
+                $provider = $channel?->provider ?: ProviderType::Zapi->value;
+
                 $communicationMessage = CommunicationMessage::create([
                     'tenant_id' => $messageData->tenantId,
                     'conversation_id' => $messageData->conversationId,
                     'contact_id' => $messageData->contactId,
                     'channel_id' => $messageData->channelId,
-                    'provider' => ProviderType::Zapi->value,
+                    'provider' => $provider,
                     'external_message_id' => null,
                     'direction' => MessageDirection::Outbound->value,
                     'message_type' => $messageData->messageType->value,
@@ -73,7 +77,7 @@ class ProcessOutboundMessageAction
                     'conversation_id' => $messageData->conversationId,
                     'contact_id' => $messageData->contactId,
                     'communication_message_id' => $communicationMessage->id,
-                    'provider' => ProviderType::Zapi->value,
+                    'provider' => $provider,
                     'external_contact_id' => $messageData->externalContactId,
                     'idempotency_key' => $messageData->idempotencyKey,
                     'message_type' => $messageData->messageType->value,
