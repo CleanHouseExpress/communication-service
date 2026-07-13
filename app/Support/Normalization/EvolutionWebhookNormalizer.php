@@ -19,6 +19,11 @@ class EvolutionWebhookNormalizer
         }
 
         $remoteJid = $this->firstString($data, ['key.remoteJid', 'remoteJid', 'from', 'sender']);
+
+        if ($this->isGroupJid($remoteJid)) {
+            return null;
+        }
+
         $participant = $this->firstString($data, ['key.participant', 'participant']);
         $contactPhone = $this->normalizePhone($participant ?? $remoteJid);
 
@@ -28,6 +33,11 @@ class EvolutionWebhookNormalizer
 
         $externalMessageId = $this->firstString($data, ['key.id', 'id', 'messageId', 'message_id']);
         $messageType = $this->detectMessageType($data);
+        $text = $this->extractText($data);
+
+        if ($messageType === MessageType::Unknown && $text === null) {
+            return null;
+        }
 
         return new InboundMessageData(
             provider: ProviderType::WhatsApp,
@@ -42,7 +52,7 @@ class EvolutionWebhookNormalizer
             contactName: $this->firstString($data, ['pushName', 'push_name', 'senderName', 'sender_name', 'name']),
             contactPhone: $contactPhone,
             messageType: $messageType,
-            text: $this->extractText($data),
+            text: $text,
             occurredAt: $this->occurredAt($data),
             rawPayload: $payload,
         );
@@ -154,6 +164,11 @@ class EvolutionWebhookNormalizer
         }
 
         return null;
+    }
+
+    private function isGroupJid(?string $jid): bool
+    {
+        return $jid !== null && str_ends_with(strtolower($jid), '@g.us');
     }
 
     private function normalizePhone(?string $phone): ?string

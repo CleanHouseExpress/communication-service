@@ -8,6 +8,8 @@ use App\DTO\Messaging\ChannelStatusResult;
 use App\DTO\Messaging\MessagePayload;
 use App\DTO\Messaging\MessageResult;
 use App\Models\CommunicationChannel;
+use App\Models\CommunicationContact;
+use App\Models\CommunicationConversation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -289,6 +291,169 @@ class InternalWhatsAppMessagingTest extends TestCase
             'external_message_id' => 'provider-message-update-1',
             'text' => 'Mensagem recebida apos reconnect',
             'status' => 'received',
+        ]);
+    }
+
+    public function test_evolution_webhook_ignores_unknown_payload_without_message_content(): void
+    {
+        config([
+            'communication.tenancy.enforce' => false,
+            'communication.tenancy.runtime.enabled' => false,
+            'communication.agent.enabled' => false,
+        ]);
+
+        $this->postJson('/api/webhooks/evolution', [
+            'event' => 'messages.update',
+            'instance' => 'orchestra-clin-4-whatsapp',
+            'data' => [
+                'key' => [
+                    'id' => 'provider-message-empty-1',
+                    'remoteJid' => '5541999999999@s.whatsapp.net',
+                    'fromMe' => false,
+                ],
+                'messageTimestamp' => 1_783_967_000,
+            ],
+        ])
+            ->assertOk()
+            ->assertJson([
+                'accepted' => true,
+                'provider' => 'evolution',
+                'event' => 'messages.update',
+                'processed' => false,
+            ]);
+
+        $this->assertDatabaseCount('communication_conversations', 0);
+        $this->assertDatabaseCount('communication_messages', 0);
+    }
+
+    public function test_evolution_webhook_ignores_group_messages(): void
+    {
+        config([
+            'communication.tenancy.enforce' => false,
+            'communication.tenancy.runtime.enabled' => false,
+            'communication.agent.enabled' => false,
+        ]);
+
+        $this->postJson('/api/webhooks/evolution', [
+            'event' => 'messages.upsert',
+            'instance' => 'orchestra-clin-4-whatsapp',
+            'data' => [
+                'key' => [
+                    'id' => 'provider-group-message-1',
+                    'remoteJid' => '120363123456789@g.us',
+                    'participant' => '5541999999999@s.whatsapp.net',
+                    'fromMe' => false,
+                ],
+                'pushName' => 'Participante Grupo',
+                'message' => [
+                    'conversation' => 'Mensagem enviada dentro do grupo',
+                ],
+                'messageTimestamp' => 1_783_967_050,
+            ],
+        ])
+            ->assertOk()
+            ->assertJson([
+                'accepted' => true,
+                'provider' => 'evolution',
+                'event' => 'messages.upsert',
+                'processed' => false,
+            ]);
+
+        $this->assertDatabaseCount('communication_contacts', 0);
+        $this->assertDatabaseCount('communication_conversations', 0);
+        $this->assertDatabaseCount('communication_messages', 0);
+    }
+
+    public function test_evolution_webhook_reuses_open_conversation_for_same_contact_when_channel_changes(): void
+    {
+        config([
+            'communication.tenancy.enforce' => false,
+            'communication.tenancy.runtime.enabled' => false,
+            'communication.agent.enabled' => false,
+        ]);
+
+        $oldChannel = CommunicationChannel::create([
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'external_id' => 'legacy-whatsapp-channel',
+            'name' => 'WhatsApp antigo',
+            'status' => 'active',
+        ]);
+        $newChannel = CommunicationChannel::create([
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'external_id' => 'orchestra-clin-4-whatsapp',
+            'name' => 'WhatsApp Clin',
+            'status' => 'active',
+        ]);
+        $contact = CommunicationContact::create([
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'external_id' => '554141414444',
+            'name' => 'clin',
+            'phone' => '554141414444',
+        ]);
+        $conversation = CommunicationConversation::create([
+            'tenant_id' => '4',
+            'channel_id' => $oldChannel->id,
+            'contact_id' => $contact->id,
+            'status' => 'open',
+            'service_mode' => 'human',
+            'handoff_status' => 'assigned',
+            'assignment_status' => 'assigned',
+            'assigned_external_user_id' => '1',
+            'assigned_external_user_name' => 'Admin Clin',
+            'last_message_at' => now()->subMinute(),
+            'metadata' => [],
+        ]);
+        $duplicateConversation = CommunicationConversation::create([
+            'tenant_id' => '4',
+            'channel_id' => $newChannel->id,
+            'contact_id' => $contact->id,
+            'status' => 'open',
+            'service_mode' => 'ai',
+            'handoff_status' => 'none',
+            'last_message_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $this->postJson('/api/webhooks/evolution', [
+            'event' => 'messages.upsert',
+            'instance' => 'orchestra-clin-4-whatsapp',
+            'data' => [
+                'key' => [
+                    'id' => 'provider-message-reuse-1',
+                    'remoteJid' => '554141414444@s.whatsapp.net',
+                    'fromMe' => false,
+                ],
+                'pushName' => 'clin',
+                'message' => [
+                    'conversation' => 'Resposta chegando no canal novo',
+                ],
+                'messageTimestamp' => 1_783_967_100,
+            ],
+        ])
+            ->assertOk()
+            ->assertJsonPath('conversation_id', (string) $conversation->id)
+            ->assertJsonPath('message_created', true);
+
+        $this->assertDatabaseCount('communication_conversations', 2);
+        $this->assertDatabaseHas('communication_conversations', [
+            'id' => $conversation->id,
+            'channel_id' => $newChannel->id,
+            'service_mode' => 'human',
+            'handoff_status' => 'assigned',
+            'assigned_external_user_name' => 'Admin Clin',
+        ]);
+        $this->assertDatabaseHas('communication_messages', [
+            'conversation_id' => $conversation->id,
+            'channel_id' => $newChannel->id,
+            'external_message_id' => 'provider-message-reuse-1',
+            'text' => 'Resposta chegando no canal novo',
+        ]);
+        $this->assertDatabaseMissing('communication_messages', [
+            'conversation_id' => $duplicateConversation->id,
+            'external_message_id' => 'provider-message-reuse-1',
         ]);
     }
 

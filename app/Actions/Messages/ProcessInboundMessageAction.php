@@ -245,6 +245,27 @@ class ProcessInboundMessageAction
     ): CommunicationConversation {
         $conversation = CommunicationConversation::query()
             ->where('tenant_id', $messageData->tenantId)
+            ->where('contact_id', $contact->id)
+            ->where('status', ConversationStatus::Open->value)
+            ->where(function ($query): void {
+                $query
+                    ->where('service_mode', ConversationServiceMode::Human->value)
+                    ->orWhere('handoff_status', ConversationHandoffStatus::Assigned->value)
+                    ->orWhereNotNull('assigned_external_user_id');
+            })
+            ->latest('created_at')
+            ->first();
+
+        if ($conversation !== null) {
+            if ($conversation->channel_id !== $channel->id) {
+                $conversation->forceFill(['channel_id' => $channel->id])->save();
+            }
+
+            return $conversation;
+        }
+
+        $conversation = CommunicationConversation::query()
+            ->where('tenant_id', $messageData->tenantId)
             ->where('channel_id', $channel->id)
             ->where('contact_id', $contact->id)
             ->where('status', ConversationStatus::Open->value)
@@ -252,6 +273,21 @@ class ProcessInboundMessageAction
             ->first();
 
         if ($conversation !== null) {
+            return $conversation;
+        }
+
+        $conversation = CommunicationConversation::query()
+            ->where('tenant_id', $messageData->tenantId)
+            ->where('contact_id', $contact->id)
+            ->where('status', ConversationStatus::Open->value)
+            ->latest('created_at')
+            ->first();
+
+        if ($conversation !== null) {
+            if ($conversation->channel_id !== $channel->id) {
+                $conversation->forceFill(['channel_id' => $channel->id])->save();
+            }
+
             return $conversation;
         }
 
