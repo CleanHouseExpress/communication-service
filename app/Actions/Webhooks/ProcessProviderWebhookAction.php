@@ -12,6 +12,7 @@ use App\Support\Normalization\ZapiWebhookNormalizer;
 use App\Support\Tenancy\CurrentTenantConnection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class ProcessProviderWebhookAction
@@ -130,9 +131,16 @@ class ProcessProviderWebhookAction
             return null;
         }
 
-        $channel = CommunicationChannel::query()
-            ->where('provider', $provider->value)
-            ->find($channelId);
+        $channelQuery = CommunicationChannel::query()
+            ->where('provider', $provider->value);
+
+        if ($tenantId !== null) {
+            $channelQuery->where('tenant_id', $tenantId);
+        }
+
+        $channel = Str::isUuid($channelId)
+            ? $channelQuery->find($channelId)
+            : $channelQuery->where('external_id', $channelId)->first();
 
         if ($channel === null) {
             throw new InvalidArgumentException('Webhook channel was not found.');

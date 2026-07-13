@@ -7,6 +7,7 @@ use App\Contracts\Messaging\MessageSenderInterface;
 use App\DTO\Messaging\ChannelStatusResult;
 use App\DTO\Messaging\MessagePayload;
 use App\DTO\Messaging\MessageResult;
+use App\Models\CommunicationChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -35,7 +36,8 @@ class InternalWhatsAppMessagingTest extends TestCase
     public function test_internal_whatsapp_text_endpoint_succeeds_with_service_token(): void
     {
         config(['communication.service_token' => 'valid-token']);
-        $this->app->instance(MessageSenderInterface::class, new class implements MessageSenderInterface {
+        $this->app->instance(MessageSenderInterface::class, new class implements MessageSenderInterface
+        {
             public function sendText(MessagePayload $payload): MessageResult
             {
                 return new MessageResult(true, 'evolution', 'text', $payload->instanceName, 'msg-1', 'sent');
@@ -77,7 +79,8 @@ class InternalWhatsAppMessagingTest extends TestCase
     public function test_internal_whatsapp_status_endpoint_succeeds_with_service_token(): void
     {
         config(['communication.service_token' => 'valid-token']);
-        $this->app->instance(ChannelStatusCheckerInterface::class, new class implements ChannelStatusCheckerInterface {
+        $this->app->instance(ChannelStatusCheckerInterface::class, new class implements ChannelStatusCheckerInterface
+        {
             public function check(string $instanceName): ChannelStatusResult
             {
                 return new ChannelStatusResult(true, 'evolution', $instanceName, 'open');
@@ -234,6 +237,58 @@ class InternalWhatsAppMessagingTest extends TestCase
         $this->assertDatabaseHas('communication_conversations', [
             'tenant_id' => '4',
             'status' => 'open',
+        ]);
+    }
+
+    public function test_evolution_webhook_resolves_orchestra_instance_as_channel_external_id(): void
+    {
+        config([
+            'communication.tenancy.enforce' => false,
+            'communication.tenancy.runtime.enabled' => false,
+            'communication.agent.enabled' => false,
+        ]);
+
+        $channel = CommunicationChannel::create([
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'external_id' => 'orchestra-clin-4-whatsapp',
+            'name' => 'WhatsApp Clin',
+            'status' => 'active',
+        ]);
+
+        $this->postJson('/api/webhooks/evolution', [
+            'event' => 'messages.update',
+            'instance' => 'orchestra-clin-4-whatsapp',
+            'data' => [
+                'key' => [
+                    'id' => 'provider-message-update-1',
+                    'remoteJid' => '5541999999999@s.whatsapp.net',
+                    'fromMe' => false,
+                ],
+                'pushName' => 'Cliente Clin',
+                'message' => [
+                    'conversation' => 'Mensagem recebida apos reconnect',
+                ],
+                'messageTimestamp' => 1_783_966_900,
+            ],
+        ])
+            ->assertOk()
+            ->assertJson([
+                'accepted' => true,
+                'provider' => 'evolution',
+                'event' => 'messages.update',
+                'processed' => true,
+                'message_created' => true,
+            ]);
+
+        $this->assertDatabaseCount('communication_channels', 1);
+        $this->assertDatabaseHas('communication_messages', [
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'channel_id' => $channel->id,
+            'external_message_id' => 'provider-message-update-1',
+            'text' => 'Mensagem recebida apos reconnect',
+            'status' => 'received',
         ]);
     }
 

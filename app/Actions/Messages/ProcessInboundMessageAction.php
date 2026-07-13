@@ -26,6 +26,7 @@ use App\Support\Tenancy\CurrentTenantConnection;
 use App\Support\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 class ProcessInboundMessageAction
@@ -192,7 +193,13 @@ class ProcessInboundMessageAction
     private function resolveChannel(InboundMessageData $messageData): CommunicationChannel
     {
         if ($messageData->channelId !== null) {
-            $channel = CommunicationChannel::query()->find($messageData->channelId);
+            $channelQuery = CommunicationChannel::query()
+                ->where('tenant_id', $messageData->tenantId)
+                ->where('provider', $messageData->provider->value);
+
+            $channel = Str::isUuid($messageData->channelId)
+                ? $channelQuery->find($messageData->channelId)
+                : $channelQuery->where('external_id', $messageData->channelId)->first();
 
             if ($channel !== null) {
                 return $channel;
