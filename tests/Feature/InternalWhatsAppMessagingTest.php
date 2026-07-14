@@ -242,6 +242,53 @@ class InternalWhatsAppMessagingTest extends TestCase
         ]);
     }
 
+    public function test_evolution_webhook_processes_image_without_caption_as_media_message(): void
+    {
+        config([
+            'communication.tenancy.enforce' => false,
+            'communication.tenancy.runtime.enabled' => false,
+            'communication.agent.enabled' => false,
+        ]);
+
+        $this->postJson('/api/webhooks/evolution', [
+            'event' => 'messages.upsert',
+            'instance' => 'orchestra-clin-4-whatsapp',
+            'data' => [
+                'key' => [
+                    'id' => 'provider-image-1',
+                    'remoteJid' => '5511999999999@s.whatsapp.net',
+                    'fromMe' => false,
+                ],
+                'pushName' => 'Cliente Clin',
+                'message' => [
+                    'imageMessage' => [
+                        'mimetype' => 'image/jpeg',
+                        'fileLength' => '12345',
+                    ],
+                ],
+                'messageTimestamp' => 1_783_966_900,
+            ],
+        ])
+            ->assertOk()
+            ->assertJson([
+                'accepted' => true,
+                'provider' => 'evolution',
+                'event' => 'messages.upsert',
+                'processed' => true,
+                'message_created' => true,
+            ]);
+
+        $this->assertDatabaseHas('communication_messages', [
+            'tenant_id' => '4',
+            'provider' => 'whatsapp',
+            'external_message_id' => 'provider-image-1',
+            'direction' => 'inbound',
+            'message_type' => 'image',
+            'text' => 'Imagem recebida',
+            'status' => 'received',
+        ]);
+    }
+
     public function test_evolution_webhook_resolves_orchestra_instance_as_channel_external_id(): void
     {
         config([

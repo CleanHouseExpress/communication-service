@@ -33,7 +33,7 @@ class EvolutionWebhookNormalizer
 
         $externalMessageId = $this->firstString($data, ['key.id', 'id', 'messageId', 'message_id']);
         $messageType = $this->detectMessageType($data);
-        $text = $this->extractText($data);
+        $text = $this->extractText($data) ?? $this->fallbackTextForMessageType($messageType);
 
         if ($messageType === MessageType::Unknown && $text === null) {
             return null;
@@ -97,16 +97,24 @@ class EvolutionWebhookNormalizer
     {
         $message = Arr::get($data, 'message', []);
 
-        if ($this->extractText($data) !== null) {
-            return MessageType::Text;
-        }
-
         return match (true) {
             is_array($message) && Arr::has($message, 'imageMessage') => MessageType::Image,
             is_array($message) && Arr::has($message, 'audioMessage') => MessageType::Audio,
             is_array($message) && Arr::has($message, 'videoMessage') => MessageType::Video,
             is_array($message) && Arr::has($message, 'documentMessage') => MessageType::Document,
+            $this->extractText($data) !== null => MessageType::Text,
             default => MessageType::Unknown,
+        };
+    }
+
+    private function fallbackTextForMessageType(MessageType $messageType): ?string
+    {
+        return match ($messageType) {
+            MessageType::Image => 'Imagem recebida',
+            MessageType::Audio => 'Audio recebido',
+            MessageType::Video => 'Video recebido',
+            MessageType::Document => 'Documento recebido',
+            default => null,
         };
     }
 
