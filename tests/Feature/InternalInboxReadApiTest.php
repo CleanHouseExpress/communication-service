@@ -55,6 +55,28 @@ class InternalInboxReadApiTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
+    public function test_index_filters_by_multiple_statuses(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $open = $this->conversation('tenant-1', [
+            'status' => 'open',
+            'last_message_at' => now()->subMinute(),
+        ]);
+        $pending = $this->conversation('tenant-1', [
+            'status' => 'pending',
+            'last_message_at' => now(),
+        ]);
+        $this->conversation('tenant-1', ['status' => 'closed']);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1&statuses[]=open&statuses[]=pending')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $pending->id)
+            ->assertJsonPath('data.1.id', $open->id)
+            ->assertJsonCount(2, 'data');
+    }
+
     public function test_index_filters_by_assignment_status(): void
     {
         config(['communication.service_token' => 'valid-token']);

@@ -21,6 +21,8 @@ class InternalConversationIndexRequest extends FormRequest
         return [
             'tenant_id' => ['required', 'string', 'max:100'],
             'status' => ['nullable', Rule::enum(ConversationStatus::class)],
+            'statuses' => ['nullable', 'array'],
+            'statuses.*' => ['string', Rule::enum(ConversationStatus::class)],
             'service_mode' => ['nullable', Rule::enum(ConversationServiceMode::class)],
             'handoff_status' => ['nullable', Rule::enum(ConversationHandoffStatus::class)],
             'assignment_status' => ['nullable', Rule::in(['unassigned', 'assigned'])],
