@@ -7,6 +7,7 @@ use App\Models\CommunicationContact;
 use App\Models\CommunicationConversation;
 use App\Models\CommunicationMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class InternalInboxReadApiTest extends TestCase
@@ -395,6 +396,65 @@ class InternalInboxReadApiTest extends TestCase
             ->assertJsonPath('data.0.message_type', 'image')
             ->assertJsonPath('data.0.text', 'Imagem recebida')
             ->assertJsonPath('data.0.media', null);
+    }
+
+    public function test_message_media_endpoint_returns_base64_media_as_binary(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $conversation = $this->conversation('tenant-1', ['with_message' => false]);
+        $message = $this->message($conversation, [
+            'message_type' => 'image',
+            'text' => 'Imagem recebida',
+            'payload' => [
+                'data' => [
+                    'message' => [
+                        'imageMessage' => [
+                            'mimetype' => 'image/jpeg',
+                            'base64' => base64_encode('fake-image'),
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response = $this->withHeader('X-Service-Token', 'valid-token')
+            ->get("/api/internal/inbox/conversations/{$conversation->id}/messages/{$message->id}/media?tenant_id=tenant-1")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
+
+        $this->assertSame('fake-image', $response->getContent());
+    }
+
+    public function test_message_media_endpoint_proxies_provider_media_url(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+        Http::fake([
+            'https://mmg.whatsapp.net/*' => Http::response('proxied-image', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $conversation = $this->conversation('tenant-1', ['with_message' => false]);
+        $message = $this->message($conversation, [
+            'message_type' => 'image',
+            'text' => 'Imagem recebida',
+            'payload' => [
+                'data' => [
+                    'message' => [
+                        'imageMessage' => [
+                            'mimetype' => 'image/jpeg',
+                            'url' => 'https://mmg.whatsapp.net/o1/v/t24/example?ccb=9-4',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response = $this->withHeader('X-Service-Token', 'valid-token')
+            ->get("/api/internal/inbox/conversations/{$conversation->id}/messages/{$message->id}/media?tenant_id=tenant-1")
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/jpeg');
+
+        $this->assertSame('proxied-image', $response->getContent());
     }
 
     public function test_runtime_disabled_uses_default_database(): void

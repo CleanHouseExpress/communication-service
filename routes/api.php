@@ -21,8 +21,8 @@ use App\Http\Controllers\Internal\ZapiChannelConnectionController;
 use App\Http\Controllers\Providers\EvolutionWebhookController;
 use App\Http\Controllers\Providers\ZapiChannelConnectedWebhookController;
 use App\Http\Controllers\Providers\ZapiChannelDisconnectedWebhookController;
-use App\Http\Controllers\Providers\ZapiChannelMessagesWebhookController;
 use App\Http\Controllers\Providers\ZapiChannelMessageStatusWebhookController;
+use App\Http\Controllers\Providers\ZapiChannelMessagesWebhookController;
 use App\Http\Controllers\Providers\ZapiMessageStatusController;
 use App\Http\Controllers\Providers\ZapiWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +60,9 @@ Route::middleware('throttle:internal-api')->group(function (): void {
         ->middleware('service.token');
 
     Route::get('/internal/inbox/summary', InboxSummaryController::class)
+        ->middleware('service.token');
+
+    Route::get('/internal/inbox/conversations/{conversation_id}/messages/{message_id}/media', [InboxMessageController::class, 'media'])
         ->middleware('service.token');
 
     Route::get('/internal/inbox/conversations/{conversation_id}/messages', [InboxMessageController::class, 'index'])
@@ -164,4 +167,3 @@ Route::post('/webhooks/z-api/{channel_id}/connected', ZapiChannelConnectedWebhoo
 
 Route::post('/webhooks/z-api/{channel_id}/disconnected', ZapiChannelDisconnectedWebhookController::class)
     ->middleware(['throttle:provider-webhooks', 'provider.webhook.signature']);
-

@@ -26,9 +26,9 @@ class SafeMessageMedia
      * @param  array<string, mixed>  $payload
      * @return array<string, string>|null
      */
-    public static function fromPayload(array $payload, ?string $messageType = null): ?array
+    public static function fromPayload(array $payload, ?string $messageType = null, bool $allowProviderUrls = false): ?array
     {
-        $url = self::safeUrl(self::firstString($payload, self::urlKeys()));
+        $url = self::safeUrl(self::firstString($payload, self::urlKeys()), $allowProviderUrls);
         $base64 = self::safeBase64(self::firstString($payload, self::base64Keys()));
 
         if ($url === null && $base64 === null) {
@@ -188,7 +188,7 @@ class SafeMessageMedia
         return null;
     }
 
-    private static function safeUrl(?string $url): ?string
+    private static function safeUrl(?string $url, bool $allowProviderUrls = false): ?string
     {
         if ($url === null) {
             return null;
@@ -197,7 +197,7 @@ class SafeMessageMedia
         if (preg_match('/^https?:\/\//i', $url) === 1) {
             $host = parse_url($url, PHP_URL_HOST);
 
-            return is_string($host) && strtolower($host) === 'mmg.whatsapp.net'
+            return is_string($host) && strtolower($host) === 'mmg.whatsapp.net' && ! $allowProviderUrls
                 ? null
                 : $url;
         }
@@ -215,7 +215,7 @@ class SafeMessageMedia
             return null;
         }
 
-        if (self::safeUrl($base64) !== null) {
+        if (self::safeUrl($base64, false) !== null) {
             return null;
         }
 
