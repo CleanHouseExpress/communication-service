@@ -369,6 +369,34 @@ class InternalInboxReadApiTest extends TestCase
         $this->assertStringNotContainsString('secret-token', $messageResponse->getContent());
     }
 
+    public function test_message_responses_do_not_expose_whatsapp_mmg_urls_as_safe_media(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $conversation = $this->conversation('tenant-1', ['with_message' => false]);
+        $this->message($conversation, [
+            'message_type' => 'image',
+            'text' => 'Imagem recebida',
+            'payload' => [
+                'data' => [
+                    'message' => [
+                        'imageMessage' => [
+                            'mimetype' => 'image/jpeg',
+                            'url' => 'https://mmg.whatsapp.net/o1/v/t24/example?ccb=9-4',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson("/api/internal/inbox/conversations/{$conversation->id}/messages?tenant_id=tenant-1")
+            ->assertOk()
+            ->assertJsonPath('data.0.message_type', 'image')
+            ->assertJsonPath('data.0.text', 'Imagem recebida')
+            ->assertJsonPath('data.0.media', null);
+    }
+
     public function test_runtime_disabled_uses_default_database(): void
     {
         config([

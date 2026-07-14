@@ -195,7 +195,11 @@ class SafeMessageMedia
         }
 
         if (preg_match('/^https?:\/\//i', $url) === 1) {
-            return $url;
+            $host = parse_url($url, PHP_URL_HOST);
+
+            return is_string($host) && strtolower($host) === 'mmg.whatsapp.net'
+                ? null
+                : $url;
         }
 
         if (preg_match('/^data:(image|audio|video|application)\/[a-z0-9.+-]+;base64,/i', $url) === 1) {
