@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\Messages\SafeMessageMedia;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -43,6 +44,7 @@ class ConversationResource extends JsonResource
                     'direction' => $message->direction,
                     'message_type' => $message->message_type,
                     'text' => $message->text,
+                    'media' => SafeMessageMedia::fromMessage($message),
                     'status' => $message->status,
                     'occurred_at' => $message->occurred_at?->toIso8601String(),
                     'created_at' => $message->created_at?->toIso8601String(),

@@ -328,6 +328,47 @@ class InternalInboxReadApiTest extends TestCase
         $this->assertStringNotContainsString('secret-token', $messageResponse->getContent());
     }
 
+    public function test_message_responses_include_safe_media_without_raw_payload(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $conversation = $this->conversation('tenant-1', ['with_message' => false]);
+        $this->message($conversation, [
+            'message_type' => 'image',
+            'text' => 'Imagem recebida',
+            'payload' => [
+                'data' => [
+                    'message' => [
+                        'imageMessage' => [
+                            'mimetype' => 'image/jpeg',
+                            'base64' => 'aW1hZ2UtZGF0YQ==',
+                        ],
+                    ],
+                ],
+                'Authorization' => 'Bearer secret-token',
+            ],
+        ]);
+
+        $conversationResponse = $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/conversations?tenant_id=tenant-1')
+            ->assertOk()
+            ->assertJsonPath('data.0.latest_message.media.type', 'image')
+            ->assertJsonPath('data.0.latest_message.media.mime_type', 'image/jpeg')
+            ->assertJsonPath('data.0.latest_message.media.base64', 'aW1hZ2UtZGF0YQ==');
+
+        $messageResponse = $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson("/api/internal/inbox/conversations/{$conversation->id}/messages?tenant_id=tenant-1")
+            ->assertOk()
+            ->assertJsonPath('data.0.media.type', 'image')
+            ->assertJsonPath('data.0.media.mime_type', 'image/jpeg')
+            ->assertJsonPath('data.0.media.base64', 'aW1hZ2UtZGF0YQ==');
+
+        $this->assertStringNotContainsString('payload', $conversationResponse->getContent());
+        $this->assertStringNotContainsString('secret-token', $conversationResponse->getContent());
+        $this->assertStringNotContainsString('payload', $messageResponse->getContent());
+        $this->assertStringNotContainsString('secret-token', $messageResponse->getContent());
+    }
+
     public function test_runtime_disabled_uses_default_database(): void
     {
         config([
@@ -475,6 +516,7 @@ class InternalInboxReadApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('channel_id');
     }
+
     private function conversation(string $tenantId, array $overrides = [], array $contact = []): CommunicationConversation
     {
         $channel = CommunicationChannel::create([
@@ -534,5 +576,3 @@ class InternalInboxReadApiTest extends TestCase
         ]);
     }
 }
-
-

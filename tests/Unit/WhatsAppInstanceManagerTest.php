@@ -131,7 +131,7 @@ class WhatsAppInstanceManagerTest extends TestCase
                 'enabled' => true,
                 'url' => 'https://communication.test/api/webhooks/evolution',
                 'webhook_by_events' => false,
-                'webhook_base64' => false,
+                'webhook_base64' => true,
                 'events' => ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
             ],
         ], $webhooks->lastPayload);
