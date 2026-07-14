@@ -113,7 +113,9 @@ class WhatsAppInstanceManager
                     'enabled' => true,
                     'url' => $url,
                     'webhook_by_events' => $webhookByEvents,
+                    'webhookByEvents' => $webhookByEvents,
                     'webhook_base64' => $webhookBase64,
+                    'base64' => $webhookBase64,
                     'events' => is_array($events) ? array_values($events) : [],
                 ],
             ]);
@@ -299,4 +301,3 @@ class WhatsAppInstanceManager
         return substr(preg_replace('/(apikey|api_key|token|authorization|secret)=?[^\\s&]*/i', '$1=[redacted]', $message) ?? $message, 0, 300);
     }
 }
-
