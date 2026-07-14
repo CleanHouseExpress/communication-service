@@ -370,7 +370,7 @@ class InternalInboxReadApiTest extends TestCase
         $this->assertStringNotContainsString('secret-token', $messageResponse->getContent());
     }
 
-    public function test_message_responses_do_not_expose_whatsapp_mmg_urls_as_safe_media(): void
+    public function test_message_responses_expose_media_metadata_without_whatsapp_mmg_url(): void
     {
         config(['communication.service_token' => 'valid-token']);
 
@@ -395,7 +395,10 @@ class InternalInboxReadApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.message_type', 'image')
             ->assertJsonPath('data.0.text', 'Imagem recebida')
-            ->assertJsonPath('data.0.media', null);
+            ->assertJsonPath('data.0.media.type', 'image')
+            ->assertJsonPath('data.0.media.mime_type', 'image/jpeg')
+            ->assertJsonMissingPath('data.0.media.url')
+            ->assertJsonMissingPath('data.0.media.base64');
     }
 
     public function test_message_media_endpoint_returns_base64_media_as_binary(): void
