@@ -343,6 +343,138 @@ class InternalInboxReadApiTest extends TestCase
             ->assertJsonPath('data.0.id', $conversation->id);
     }
 
+    public function test_contacts_index_lists_only_tenant_contacts_with_search(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        CommunicationContact::create([
+            'tenant_id' => 'tenant-1',
+            'provider' => 'evolution',
+            'external_id' => '5541999990000',
+            'name' => 'Maria Clin',
+            'phone' => '5541999990000',
+        ]);
+        CommunicationContact::create([
+            'tenant_id' => 'tenant-2',
+            'provider' => 'evolution',
+            'external_id' => '5541888880000',
+            'name' => 'Maria Outra',
+            'phone' => '5541888880000',
+        ]);
+        CommunicationContact::create([
+            'tenant_id' => 'tenant-1',
+            'provider' => 'evolution',
+            'external_id' => '5541777770000',
+            'name' => 'Joao Clin',
+            'phone' => '5541777770000',
+        ]);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->getJson('/api/internal/inbox/contacts?tenant_id=tenant-1&search=Maria')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Maria Clin');
+    }
+
+    public function test_start_conversation_with_new_contact_creates_human_conversation(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $channel = CommunicationChannel::create([
+            'tenant_id' => 'tenant-1',
+            'provider' => 'evolution',
+            'external_id' => 'orchestra-tenant-1-whatsapp',
+            'name' => 'WhatsApp',
+            'status' => 'connected',
+        ]);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->postJson('/api/internal/inbox/conversations', [
+                'tenant_id' => 'tenant-1',
+                'contact' => [
+                    'name' => 'Cliente Novo',
+                    'phone' => '(41) 99999-0000',
+                ],
+                'create_user' => true,
+                'assigned_external_user_id' => 'user-1',
+                'assigned_external_user_name' => 'Admin Master',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.channel_id', $channel->id)
+            ->assertJsonPath('data.status', 'open')
+            ->assertJsonPath('data.service_mode', 'human')
+            ->assertJsonPath('data.handoff_status', 'assigned')
+            ->assertJsonPath('data.assigned_external_user_name', 'Admin Master')
+            ->assertJsonPath('data.contact.name', 'Cliente Novo')
+            ->assertJsonPath('data.contact.phone', '41999990000');
+
+        $this->assertDatabaseHas('communication_contacts', [
+            'tenant_id' => 'tenant-1',
+            'provider' => 'evolution',
+            'external_id' => '41999990000',
+            'phone' => '41999990000',
+        ]);
+        $this->assertDatabaseCount('communication_conversations', 1);
+    }
+
+    public function test_start_conversation_with_existing_contact_reuses_open_conversation(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $channel = CommunicationChannel::create([
+            'tenant_id' => 'tenant-1',
+            'provider' => 'evolution',
+            'external_id' => 'orchestra-tenant-1-whatsapp',
+            'name' => 'WhatsApp',
+            'status' => 'connected',
+        ]);
+        $contact = CommunicationContact::create([
+            'tenant_id' => 'tenant-1',
+            'provider' => 'evolution',
+            'external_id' => '5541999990000',
+            'name' => 'Cliente Existente',
+            'phone' => '5541999990000',
+        ]);
+        $conversation = CommunicationConversation::create([
+            'tenant_id' => 'tenant-1',
+            'channel_id' => $channel->id,
+            'contact_id' => $contact->id,
+            'status' => 'open',
+            'service_mode' => 'ai',
+            'handoff_status' => 'none',
+        ]);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->postJson('/api/internal/inbox/conversations', [
+                'tenant_id' => 'tenant-1',
+                'contact_id' => $contact->id,
+                'assigned_external_user_id' => 'user-1',
+                'assigned_external_user_name' => 'Admin Master',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $conversation->id)
+            ->assertJsonPath('data.service_mode', 'human')
+            ->assertJsonPath('data.handoff_status', 'assigned')
+            ->assertJsonPath('data.assigned_external_user_id', 'user-1');
+
+        $this->assertDatabaseCount('communication_conversations', 1);
+    }
+
+    public function test_start_conversation_requires_channel_for_tenant(): void
+    {
+        config(['communication.service_token' => 'valid-token']);
+
+        $this->withHeader('X-Service-Token', 'valid-token')
+            ->postJson('/api/internal/inbox/conversations', [
+                'tenant_id' => 'tenant-1',
+                'contact' => [
+                    'name' => 'Cliente Novo',
+                    'phone' => '41999990000',
+                ],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('channel_id');
+    }
     private function conversation(string $tenantId, array $overrides = [], array $contact = []): CommunicationConversation
     {
         $channel = CommunicationChannel::create([
@@ -402,3 +534,5 @@ class InternalInboxReadApiTest extends TestCase
         ]);
     }
 }
+
+

@@ -50,7 +50,13 @@ Route::middleware('throttle:internal-api')->group(function (): void {
     Route::post('/tenant/communication/channels/provision-whatsapp', ProvisionWhatsappChannelController::class)
         ->middleware('service.token');
 
+    Route::get('/internal/inbox/contacts', [InboxConversationController::class, 'contacts'])
+        ->middleware('service.token');
+
     Route::get('/internal/inbox/conversations', [InboxConversationController::class, 'index'])
+        ->middleware('service.token');
+
+    Route::post('/internal/inbox/conversations', [InboxConversationController::class, 'store'])
         ->middleware('service.token');
 
     Route::get('/internal/inbox/summary', InboxSummaryController::class)
@@ -158,3 +164,4 @@ Route::post('/webhooks/z-api/{channel_id}/connected', ZapiChannelConnectedWebhoo
 
 Route::post('/webhooks/z-api/{channel_id}/disconnected', ZapiChannelDisconnectedWebhookController::class)
     ->middleware(['throttle:provider-webhooks', 'provider.webhook.signature']);
+
